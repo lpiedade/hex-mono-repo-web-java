@@ -33,7 +33,9 @@ mistaken for a description of the code as it is.
   Named exports only. Props are an `interface <Name>Props`; no `React.FC`.
 - A file that exports a component exports only components and types. Helpers,
   constants and factories go in a sibling `.ts` module — otherwise Fast Refresh
-  reloads the whole module on every edit (`react-refresh/only-export-components`).
+  reloads the whole module on every edit. `react-refresh/only-export-components`
+  enforces it (`pageState.ts` beside `PageHeader`, `buildInfo.ts` beside
+  `About`, `queryClient.ts` beside `App`).
 - Screens compose the primitives in `src/components/` instead of rebuilding
   them from raw MUI: `PageHeader` (the page's one `h1` and its page state),
   `SectionCard` (a named region), `DataTable` with `useClientSort`, `Banner` and
@@ -65,8 +67,8 @@ mistaken for a description of the code as it is.
   Never as a store for server data — that is React Query's (ADR-012). Memoize a
   provider's value, and split contexts that change at different rates.
 - Pass cross-cutting app state through a provider, not through more than two
-  levels of props. **(adopt: the color mode travels `App` → `AppRouter` →
-  `Shell` → `TopBar`.)**
+  levels of props — the color mode comes from `ColorModeProvider` through
+  `useColorMode()`, which the root route's `ShellLayout` reads.
 - Reach for `useMemo` / `useCallback` / `React.memo` where identity or cost is
   real: a value a hook documents as needing to be stable (`useClientSort`'s
   accessors), a context value, an `Intl` formatter, a sort. A module-level
@@ -76,8 +78,9 @@ mistaken for a description of the code as it is.
 
 **MUST**
 
-- The rules of hooks hold everywhere; `eslint-plugin-react-hooks` enforces them
-  once linting is in place ([Tooling](#12-tooling)).
+- The rules of hooks hold everywhere; `eslint-plugin-react-hooks` enforces them,
+  with the React Compiler–derived rules of its v7 `recommended` set
+  ([Tooling](#12-tooling)).
 - A custom hook is named `use<Thing>`, lives in `use<Thing>.ts`, and returns a
   named object once it returns more than two values.
 - A hook that is part of a primitive's contract lives beside the primitive
@@ -88,10 +91,11 @@ mistaken for a description of the code as it is.
 
 **SHOULD**
 
-- Extract a hook the second time the same stateful logic appears. Candidates in
-  the tree today: `useCopyToClipboard` (duplicated in `ApiErrorBanner` and
+- Extract a hook the second time the same stateful logic appears.
+  `src/hooks/useDocumentTitle.ts` is the first shared one. Candidates in the
+  tree today: `useCopyToClipboard` (duplicated in `ApiErrorBanner` and
   `GlobalErrorSnackbar`), `useDateTimeFormat` (a memoized `Intl.DateTimeFormat`
-  for `i18n.language`), `useDocumentTitle`.
+  for `i18n.language`).
 
 ## 3. Remote state
 
@@ -207,27 +211,29 @@ Within that frame:
 
 **MUST**
 
+- Routes are route objects in `src/router.tsx`, served by the data router
+  (`createBrowserRouter` under the `/app` basename, `RouterProvider` in `App`).
+  Route objects are data, which is what lets `apiContract.test.ts` walk every
+  path and `router.test.tsx` check every page's declarations.
 - Route segments are English identifiers, stable, and never start with `bff`,
   `about` or `health` (`portal/CLAUDE.md`). Every route, the catch-all included,
-  renders inside `Shell`.
-- Every route has an error boundary: a render error in one screen shows an
-  error page inside the shell, never a blank document. **(adopt)**
-- Every route sets a localized document title, `<page> · <app name>` (ADR-013
-  "a page title"; WCAG 2.4.2). **(adopt: `index.html`'s fixed
-  `<title>App Portal</title>` is the only title today.)**
+  renders inside the shell — the root route's element, `ShellLayout`.
+- Every page declares `errorElement: <RouteError />`: a screen that throws, or
+  whose lazily loaded code fails to arrive, is replaced inside the shell, never
+  by a blank document. The root route's `RootError` covers the shell itself.
+- Every page declares `handle: titled("<key>")`; the document title becomes
+  `<page> · <app>` in the active locale (ADR-013 "a page title"; WCAG 2.4.2),
+  on every navigation and every language change.
+- A screen beyond the landing page is loaded on demand (`lazy`), so the entry
+  chunk carries the shell, Home and NotFound and nothing a user may never
+  open. While a navigation waits for a chunk the current page stays, with a
+  progress bar and `aria-busy` on `main`; on a cold load `ContentFallback`
+  stands in.
 - After a client-side navigation, focus moves to the new page's `h1` (or
   `main`), so a screen-reader user learns that the page changed. **(adopt)**
 
 **SHOULD**
 
-- Use the data router — `createBrowserRouter` + `RouterProvider`, route objects
-  with `errorElement`, `lazy` per feature route, and `handle: { titleKey }`. It
-  gives the error boundary, code splitting and titles one place to live, and
-  route objects are data: `apiContract.test.ts` can then check every route
-  path against the BFF's segments, where today it checks only `NAV_ITEMS`.
-  **(adopt)**
-- Split per feature route; keep the shell, Home and NotFound in the entry chunk.
-  The `Suspense` boundary in `Shell` is where the fallback already lives.
 - Keep URL state to opaque identifiers and safe filters (ADR-012). A
   server-paged list MAY keep its page, sort and filters in search params so a
   reload or a shared link reproduces it.
@@ -240,12 +246,14 @@ it:
 
 **MUST**
 
-- Two layers, never neither: route error boundaries for render errors, and the
+- Two layers, never neither: route error elements for render errors, and the
   page state / `ApiErrorBanner` / global snackbar for request errors. A render
   error must not unmount the shell — without a boundary, React 18 unmounts the
-  whole root, the snackbar with it. **(adopt)**
-- An error boundary shows a generic, localized message and no stack, and logs
-  through the same sanitized, field-by-field path as `logFailure`.
+  whole root. The snackbar sits beside the router, so it keeps reporting while
+  an error page is on screen.
+- An error page shows one generic, localized message, a reload and the way
+  home — never the error's message or stack. React Router writes the error to
+  the console for whoever debugs it.
 - How a failure reads — a transport failure as `error.bffUnavailable`, the BFF's
   `503 UPSTREAM_UNAVAILABLE` as `error.upstreamUnavailable`, anything else as its
   `detail`, with the code and correlation id beneath — is one function that
@@ -253,7 +261,8 @@ it:
   components each carry a copy.)**
 - A promise-returning handler is not handed to a DOM event directly: write
   `onClick={() => void copy()}` and handle the rejection inside —
-  `navigator.clipboard` can be missing or refused. **(adopt)**
+  `navigator.clipboard` can be missing or refused. `no-misused-promises`
+  enforces the first half.
 
 **SHOULD**
 
@@ -349,16 +358,20 @@ MUI 5 under the application theme in `src/theme/` (ADR-013).
 
 **SHOULD**
 
-- Hold the color mode in one provider that persists the choice — as the locale
-  and the rail width already are — and exposes `useColorMode()`. On MUI 6 it
-  becomes `colorSchemes` with CSS variables. **(adopt)**
+- The color mode lives in one provider, `ColorModeProvider`, exposed through
+  `useColorMode()`. It SHOULD also persist the choice, as the locale and the
+  rail width already are. **(adopt: it does not persist yet.)** On MUI 6 it
+  becomes `colorSchemes` with CSS variables.
 
 ## 10. TypeScript
 
 **MUST**
 
-- `strict` stays on. No `any`: `unknown` plus narrowing at a trust boundary
-  (`toApiError`). A cast only at a boundary, with a comment saying why.
+- `strict` stays on, in both projects: `tsconfig.json` for the browser code and
+  `tsconfig.e2e.json` (with `@types/node`) for `e2e/` and
+  `playwright.config.ts`. `npm run typecheck` compiles both.
+- No `any`: `unknown` plus narrowing at a trust boundary (`toApiError`). A cast
+  only at a boundary, with a comment saying why.
 - Wire types come from `portal-api.d.ts` through the aliases `api/client.ts`
   re-exports. The generated file is never edited.
 - Variants are discriminated unions, checked exhaustively (`never` in the
@@ -366,12 +379,9 @@ MUI 5 under the application theme in `src/theme/` (ADR-013).
 
 **SHOULD**
 
-- Add `noUncheckedIndexedAccess` (two errors in `src/`, eleven in the suites),
-  `verbatimModuleSyntax` and `noImplicitOverride` (none). Leave
+- Add `noUncheckedIndexedAccess` (two errors in `src/`, eleven in the suites,
+  at the review), `verbatimModuleSyntax` and `noImplicitOverride` (none). Leave
   `exactOptionalPropertyTypes` off: MUI's prop types reject it.
-- Type-check `e2e/` and `playwright.config.ts` through a second tsconfig with
-  `@types/node`, run by `npm run typecheck`. Today no compiler reads them.
-  **(adopt)**
 - Import across top-level folders through an `@/` alias (tsconfig `paths` plus
   Vite `resolve.alias`); relative imports within a feature.
 
@@ -386,19 +396,24 @@ suites, and the rule that a test asserts the key. On top of it:
   t("items.create") })`), then by label, then by text.
   `container.querySelector` only for structure the accessibility tree does not
   expose (`<time datetime>`, `<dl>`).
-- `const user = userEvent.setup()` per test, every interaction awaited.
-  `fireEvent` only when no user-event equivalent exists; an event dispatched
-  outside Testing Library is wrapped in `act`.
-- Render through `renderWithProviders` from `test-utils`. A test about both
-  themes builds its own `ThemeProvider`.
+- `const user = userEvent.setup()` per test, every interaction awaited — a key
+  chord too (`user.keyboard("{Control>}/{/Control}")`), not a hand-dispatched
+  event. `fireEvent` only when no user-event equivalent exists. A change caused
+  from outside React (a report from the error net, a language switch) is
+  flushed with `act` — awaited when it is asynchronous — before anything is
+  asserted; global state is reset only after `cleanup()` has unmounted the tree.
+- Render through `renderWithProviders` from `test-utils`, or through
+  `renderRoutes` when the test needs the data router (`lazy`, `errorElement`,
+  `handle`). A test about both themes builds its own `ThemeProvider`.
 - Screen suites mock `api/client` at the module boundary with typed
-  `vi.mocked`, and state each function's answer in the test that relies on it.
-- The run is clean: no React `act` warnings and no unexpected `console.error`.
-  A test that expects console output silences it itself and asserts it;
-  `test-setup.ts` fails any other. **(adopt: two screen suites mute
-  `console.error` for every test, and the run prints thirteen `act` warnings.)**
-- Mocks are restored between tests (`restoreMocks` and `unstubGlobals` in the
-  Vitest config). **(adopt)**
+  `vi.mocked`, and state each function's answer in the `beforeEach` or the test
+  that relies on it — mocks are restored before every test (`clearMocks`,
+  `restoreMocks`, `unstubGlobals` in the Vitest config), so an answer set once
+  at module level does not survive the first test.
+- The run is clean. `test-setup.ts` fails a test on any `console.error` or
+  `console.warn` it did not declare; a test about such output calls
+  `expectConsole("error" | "warn")` and asserts on the spy it returns. React's
+  "not wrapped in act(...)" warning fails a test even when it declared errors.
 - Assert behaviour, not implementation — no inline styles, class names or hook
   internals.
 - A feature ships with: a screen suite (list, empty, loading, failure, each
@@ -420,31 +435,40 @@ Where suites live is part of the folder structure below.
 
 ## 12. Tooling
 
-- **ESLint** (flat config, `npm run lint`, in the CI gate): `@eslint/js`,
-  `typescript-eslint` `recommendedTypeChecked`, `eslint-plugin-react-hooks`
-  `recommended` (v7 adds the compiler-derived rules: purity,
-  set-state-in-effect, refs, …), `eslint-plugin-react-refresh`,
-  `eslint-plugin-jsx-a11y` `recommended` (with `no-autofocus`
-  `{ ignoreNonDOM: true }`: the dialogs' `autoFocus` is deliberate), and, for
-  the suites, `eslint-plugin-testing-library`, `eslint-plugin-jest-dom` and
-  `@vitest/eslint-plugin`. **(adopt: there is no linter today.)**
-- **Prettier**: `printWidth: 100`, double quotes, trailing commas — the style
-  the tree already follows — with `npm run format:check` in CI. **(adopt)**
+- **ESLint** (`eslint.config.js`, `npm run lint` with `--max-warnings 0`, in
+  the CI gate): `@eslint/js`, `typescript-eslint` `recommendedTypeChecked` over
+  both TypeScript projects, `eslint-plugin-react-hooks` `recommended` (v7: the
+  rules of hooks plus the compiler-derived purity, set-state-in-effect, refs,
+  …), `eslint-plugin-react-refresh` and `eslint-plugin-jsx-a11y` `recommended`
+  for `src/`, and `eslint-config-prettier` last. ESLint stays on 9 because
+  `eslint-plugin-jsx-a11y` 6.10 declares no support for 10. A rule is disabled
+  only inline, for one line, with the reason after `--` — the dialogs'
+  deliberate `autoFocus` is the example.
+- The suites SHOULD also get `eslint-plugin-testing-library`,
+  `eslint-plugin-jest-dom` and `@vitest/eslint-plugin`. **(adopt)**
+- **Prettier** (`.prettierrc.json`): `printWidth: 100` — the width that changed
+  the fewest lines of the existing tree — and otherwise Prettier's defaults.
+  `npm run format:check` is in CI; `npm run format` writes. Markdown is left to
+  the repository's documentation conventions (`.prettierignore`).
 - **Import order**: external packages, then `@/`, then relative; type-only
-  imports inline (`import { type Item }`). Enforced by
-  `eslint-plugin-simple-import-sort`.
-- **Bundle**: leave `chunkSizeWarningLimit` at Vite's default so growth shows
-  up, split long-lived vendor chunks (`react`, `@mui`, `@tanstack`, `i18next`)
-  with `manualChunks`, and measure with `rollup-plugin-visualizer` when a
-  dependency is added. **(adopt: one 584 kB chunk, 184 kB gzipped, under a
-  raised 1024 kB limit.)**
+  imports inline (`import { type Item }`). SHOULD be enforced by
+  `eslint-plugin-simple-import-sort`. **(adopt)**
+- **Bundle**: `chunkSizeWarningLimit` stays at Vite's default 500 kB so growth
+  shows up in the build output. Third-party code is split by `manualChunks`
+  (`vite.config.ts`) into `react`, `mui` and `vendor`, which import only
+  downwards and change only when a dependency does; each screen beyond the
+  landing page is a chunk of its own. At the change that introduced them:
+  entry 32.6 kB (12.3 kB gzipped), `react` 142.7 kB (45.7), `vendor` 171.3 kB
+  (54.3), `mui` 278.1 kB (86.2), `ItemsPage` 9.4 kB, `About` 2.3 kB — against
+  one 584 kB chunk (184 kB gzipped) before. Measure with
+  `rollup-plugin-visualizer` when a dependency is added.
 - **Upgrades** — what stands in the way today:
 
   | Upgrade | Blocker or work |
   | --- | --- |
   | React 19 | `@mui/material` 5.16.7 and `@testing-library/react` 16.0.1 declare `react ^17 \|\| ^18` / `^18`; both need a newer release. The tree uses none of the removed APIs (`forwardRef`, function `defaultProps`, string refs, `ReactDOM.render`). |
   | MUI 6 | System props on `Box`/`Stack`, `TablePagination`'s `SelectProps` (→ `slotProps.select`), `Drawer`'s `ModalProps`; the `@mui/codemod` v6 recipes cover them. Color mode moves to `colorSchemes`. |
-  | React Router 7 | `v7_*` future flags; the data-router migration in [Routing](#5-routing). |
+  | React Router 7 | `v7_*` future flags. The data router (`createBrowserRouter`, route objects, `lazy`) is already the v7 shape. |
 
 ## 13. Folder structure
 
@@ -453,19 +477,25 @@ Where suites live is part of the folder structure below.
 ```
 portal/web/
   e2e/                  Playwright: *.a11y.spec.ts, *.journey.spec.ts, i18n.ts (key resolver)
+  eslint.config.js      ESLint (type-aware, both projects)
+  tsconfig.e2e.json     the Playwright suites' TypeScript project (@types/node)
   src/
     main.tsx            entry: fonts, createRoot, StrictMode
-    App.tsx             providers, the QueryClient factory, color mode state
-    router.tsx          <Routes>: the shell, four pages
+    App.tsx             providers, RouterProvider, GlobalErrorSnackbar
+    queryClient.ts      createQueryClient: the caches wired to the error net
+    router.tsx          route objects (data router): shell, pages (lazy beyond Home), error elements
     i18n.ts             i18next init, SUPPORTED_LOCALES, missing-key report
-    test-setup.ts       jest-dom, the matchMedia stub, setTestViewportWidth
+    test-setup.ts       jest-dom, the console guard (expectConsole), the matchMedia stub
     api/                client.ts, auth.ts, errors.ts, errorReporting.ts, portal-api.d.ts (generated)
-    components/         primitives, useClientSort.ts, a11y.ts
-    layout/             Shell, Nav, TopBar, IdentityCard, navItems, navPreferences, dimensions
-    pages/              Home, About (/build), NotFound, items/ (page, dialog, form, query key)
-    theme/              tokens, MUI theme, contrast, fonts
+    components/         primitives, pageState.ts, useClientSort.ts, a11y.ts
+    hooks/              useDocumentTitle.ts (useDocumentTitle, useRouteTitle)
+    layout/             ShellLayout (root route), Shell, ContentFallback, Nav, TopBar,
+                        IdentityCard, navItems, navPreferences, dimensions
+    pages/              Home, About (/build) + buildInfo.ts, NotFound, RouteError,
+                        items/ (page, dialog, form, query key)
+    theme/              tokens, MUI theme, contrast, fonts, ColorModeProvider, colorMode.ts
     locales/            en-US.json, pt-BR.json
-    __tests__/          every Vitest suite, plus test-utils.tsx
+    __tests__/          every Vitest suite, plus test-utils.tsx (renderWithProviders, renderRoutes)
 ```
 
 Layers are folders, and the one example resource is split between `pages/`
@@ -478,7 +508,6 @@ and `pages/` becomes a second place where features live.
 ```
 portal/web/
   e2e/                          unchanged
-  tsconfig.e2e.json             types for e2e/ and playwright.config.ts (@types/node)
   src/
     main.tsx                    entry
     app/                        composition root — the only place that wires providers
@@ -555,8 +584,9 @@ Move in this order — each step leaves the gate green.
 2. Move `pages/items/` into `features/items/`, splitting `queryKeys.ts` into
    `api/queries.ts` and `api/mutations.ts`. Move `About` and the user-context
    key into `features/system/`.
-3. Move `App.tsx` and `router.tsx` into `app/`, extract `queryClient.ts`, add
-   the `@/` alias.
+3. Move `App.tsx`, `queryClient.ts`, `router.tsx`, `pages/RouteError.tsx` and
+   `theme/ColorModeProvider.tsx` into `app/`, and add the `@/` alias. Each
+   feature then contributes its route objects from its own `routes.tsx`.
 4. Update the layout and *Adding a resource* sections of
    [`portal/web/README.md`](../../portal/web/README.md).
 
@@ -593,8 +623,11 @@ For a resource `<name>` (plural, English), in this order:
    `useClientSort` for a collection fetched whole or server-side sort for a paged
    one (ADR-024). Each mutation the page renders inline carries
    `meta: REPORTED_INLINE`; any other is listed in `CARRIED_BY_THE_NET`.
-7. **Route.** Add the feature's route object — an English segment that is not
-   `bff`, `about` or `health`, a lazy page, a title key — to the route tree.
+7. **Route.** Add the feature's route object to the route tree in
+   `router.tsx`: an English segment that is not `bff`, `about` or `health`,
+   `lazy` for the page, `errorElement: <RouteError />` and
+   `handle: titled("<name>.title")`. `router.test.tsx` fails on a page without
+   the last two.
 8. **Navigation.** An entry in `layout/navItems.ts` under a `nav.<key>` label.
 9. **Copy.** Every new key — title, labels, tooltips, empty state, errors,
    plural forms — in **both** bundles, in the same change.
@@ -605,29 +638,33 @@ For a resource `<name>` (plural, English), in this order:
     inline error the sweep cannot reach; a journey step in
     `e2e/*.journey.spec.ts` when the feature is a shipped journey (ADR-014).
 11. **Verify.** From `portal/web/`:
-    `npm ci && npm run test:coverage && npm run build`, then
-    `npm run test:a11y`. If coverage rose, the ratchet moves as
+    `npm ci && npm run lint && npm run format:check && npm run test:coverage && npm run build`,
+    then `npm run test:a11y`. If coverage rose, the ratchet moves as
     [`coverage-ratchet.md`](../performance/coverage-ratchet.md) describes.
 
 ## Adoption status
 
-What the tree does not yet follow, as of the review of 2026-09-30. Each item is
-marked **(adopt)** where it is stated above; remove it from both places when it
-lands.
+What the tree does not yet follow. Each item is marked **(adopt)** where it is
+stated above; remove it from both places when it lands.
 
-- **Errors and routing:** no error boundary (`router.tsx`); no document title
-  per route (`index.html`); no focus move on navigation; component routes rather
-  than the data router, so no lazy routes and no route-level guard in
-  `apiContract.test.ts`.
+Landed since the review of 2026-09-30: the data router with an error element
+per page and a root one for the shell; a localized document title per route;
+lazily loaded screens and split vendor chunks under Vite's default size
+warning; the route-tree guard in `apiContract.test.ts`; ESLint and Prettier in
+the CI gate; type-checking of `e2e/` and `playwright.config.ts`; the console
+guard in `test-setup.ts`, restored mocks, and no `act` warnings; the color mode
+in a provider instead of props; handled clipboard rejections.
+
+- **Routing:** no focus move on navigation.
 - **Remote state:** inline query keys (`About.tsx`, `IdentityCard.tsx`) and no
   `queryOptions`; no `signal` forwarded (`api/client.ts`); a paused query
   renders nothing (`pageStateOf` reads `isLoading`); `IdentityCard` renders a
   failure as "loading".
 - **Components and hooks:** a side effect inside a state updater
-  (`navPreferences.ts`, `toggleCollapsed`); uncleared timers and unhandled
-  clipboard rejections (`ApiErrorBanner.tsx`, `GlobalErrorSnackbar.tsx`), with
-  the failure-rendering logic duplicated between them; color mode drilled
-  through props and not persisted.
+  (`navPreferences.ts`, `toggleCollapsed`); uncleared timers in
+  `ApiErrorBanner.tsx` and `GlobalErrorSnackbar.tsx`, with the
+  failure-rendering logic duplicated between them; the color mode is not
+  persisted.
 - **Accessibility:** `DataTable`'s live region populated at mount;
   `PageStateNotice` announces loading twice; two alerts for one failure in
   `ItemsPage`; `LanguageSelector` lacks `aria-expanded`/`aria-controls`; no
@@ -635,11 +672,6 @@ lands.
 - **i18n:** untyped keys; pt-BR `many` plural missing.
 - **Styling:** the skip link's imperative styles (`Shell.tsx`); pixel font
   sizes in `IdentityCard.tsx` and `Nav.tsx`.
-- **TypeScript and tooling:** no ESLint or Prettier; `e2e/` and
-  `playwright.config.ts` not type-checked; one JS chunk under a raised size
-  limit. A trial ESLint run with the configuration above found eleven issues in
-  `src/` outside the suites — five `only-export-components`, two
-  `no-misused-promises`, two `no-autofocus`, one `no-floating-promises`, one
-  `no-unnecessary-type-assertion` — and none from the hooks rules.
-- **Tests:** muted `console.error` and thirteen `act` warnings; no
-  `restoreMocks`; `itemForm.test.ts` restates the contract's limits as literals.
+- **Tooling:** no Testing Library, jest-dom or Vitest lint plugins for the
+  suites; no enforced import order.
+- **Tests:** `itemForm.test.ts` restates the contract's limits as literals.

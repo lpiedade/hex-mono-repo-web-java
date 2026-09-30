@@ -1,11 +1,6 @@
 import createClient from "openapi-fetch";
 import type { components, paths } from "./portal-api.d";
-import {
-  APP_BASE_PATH,
-  browser,
-  csrfMiddleware,
-  sessionMiddleware,
-} from "./auth";
+import { APP_BASE_PATH, browser, csrfMiddleware, sessionMiddleware } from "./auth";
 import { toApiError } from "./errors";
 
 export type Item = components["schemas"]["Item"];
@@ -46,7 +41,7 @@ export async function getBffAbout() {
   const { data, error, response } = await bffClient.GET("/about");
   // The contract declares no error response here, so `error` is typed `never`;
   // a proxy or gateway in front of the BFF can still answer one.
-  if (!response.ok || !data) throw toApiError(response.status, error as unknown);
+  if (!response.ok || !data) throw toApiError(response.status, error);
   return data;
 }
 

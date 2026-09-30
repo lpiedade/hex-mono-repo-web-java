@@ -61,6 +61,9 @@ export function ConfirmDialog({
         {children}
       </DialogContent>
       <DialogActions>
+        {/* eslint-disable-next-line jsx-a11y/no-autofocus -- A modal dialog must
+            place focus inside itself; Cancel is the deliberate target, so a
+            reflexive Enter never runs the destructive action (see above). */}
         <Button onClick={onCancel} disabled={pending} autoFocus>
           {t("common.cancel")}
         </Button>

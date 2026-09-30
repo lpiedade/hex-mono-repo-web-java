@@ -43,7 +43,13 @@ function container(): HTMLElement {
 function toHex(rgb: string): string {
   const parts = rgb.match(/\d+/g);
   if (!parts) return rgb;
-  return "#" + parts.slice(0, 3).map((n) => Number(n).toString(16).padStart(2, "0")).join("");
+  return (
+    "#" +
+    parts
+      .slice(0, 3)
+      .map((n) => Number(n).toString(16).padStart(2, "0"))
+      .join("")
+  );
 }
 
 describe("DataTable surface", () => {
@@ -57,15 +63,13 @@ describe("DataTable surface", () => {
   it("sits on the card surface in the light theme", () => {
     renderIn("light");
 
-    expect(toHex(getComputedStyle(container()).backgroundColor))
-      .toBe(lightColors.surface.card);
+    expect(toHex(getComputedStyle(container()).backgroundColor)).toBe(lightColors.surface.card);
   });
 
   it("sits on the card surface in the dark theme, from the same line", () => {
     renderIn("dark");
 
-    expect(toHex(getComputedStyle(container()).backgroundColor))
-      .toBe(darkColors.surface.card);
+    expect(toHex(getComputedStyle(container()).backgroundColor)).toBe(darkColors.surface.card);
   });
 
   it("is delimited, not merely tinted", () => {

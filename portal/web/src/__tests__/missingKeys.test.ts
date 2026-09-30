@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import i18n, { reportMissingKey, resetMissingKeyReports, SUPPORTED_LOCALES } from "../i18n";
+import { expectConsole } from "../test-setup";
 
 /**
  * An unresolved translation key is a defect, not UI text.
@@ -10,21 +11,23 @@ import i18n, { reportMissingKey, resetMissingKeyReports, SUPPORTED_LOCALES } fro
  * identifier and nothing would report it.
  */
 describe("a missing i18n key", () => {
+  // The report *is* console output, so every test here declares it.
+  let consoleError: ReturnType<typeof expectConsole>;
+
   beforeEach(() => {
     resetMissingKeyReports();
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    consoleError = expectConsole("error");
   });
 
   afterEach(() => {
     resetMissingKeyReports();
-    vi.restoreAllMocks();
   });
 
   it("is reported when i18next cannot resolve it", () => {
     i18n.t("items.status.undefined");
 
-    expect(console.error).toHaveBeenCalled();
-    const logged = vi.mocked(console.error).mock.calls.flat().join(" ");
+    expect(consoleError).toHaveBeenCalled();
+    const logged = consoleError.mock.calls.flat().join(" ");
     expect(logged).toContain("items.status.undefined");
     expect(logged).toContain("Add it to every bundle");
   });
@@ -40,14 +43,14 @@ describe("a missing i18n key", () => {
   it("is reported once however many times it is rendered", () => {
     for (let i = 0; i < 10; i++) i18n.t("nav.doesNotExist");
 
-    expect(console.error).toHaveBeenCalledTimes(1);
+    expect(consoleError).toHaveBeenCalledTimes(1);
   });
 
   it("reports two different keys separately", () => {
     reportMissingKey(["en-US"], "one.missing");
     reportMissingKey(["en-US"], "another.missing");
 
-    expect(console.error).toHaveBeenCalledTimes(2);
+    expect(consoleError).toHaveBeenCalledTimes(2);
   });
 
   it("does not fire for keys every bundle carries", () => {
@@ -56,6 +59,6 @@ describe("a missing i18n key", () => {
         expect(i18n.t(key, { lng: locale }), `${key} in ${locale}`).not.toBe(key);
       }
     }
-    expect(console.error).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalled();
   });
 });

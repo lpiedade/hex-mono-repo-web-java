@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import i18n, { DEFAULT_LOCALE, LOCALE_STORAGE_KEY } from "../i18n";
@@ -7,6 +7,9 @@ import { renderWithProviders, tRe } from "./test-utils";
 
 describe("LanguageSelector", () => {
   afterEach(async () => {
+    // Unmount first: the locale is global, and switching it back under a
+    // mounted selector would re-render a tree the test has finished with.
+    cleanup();
     await i18n.changeLanguage(DEFAULT_LOCALE);
     localStorage.clear();
   });

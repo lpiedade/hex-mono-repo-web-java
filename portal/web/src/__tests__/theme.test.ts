@@ -11,14 +11,7 @@ import {
 
 const MODES = ["light", "dark"] as const;
 // Every filled control whose label sits on the fill and must clear AA.
-const FILLED_ROLES = [
-  "primary",
-  "secondary",
-  "success",
-  "warning",
-  "error",
-  "info",
-] as const;
+const FILLED_ROLES = ["primary", "secondary", "success", "warning", "error", "info"] as const;
 
 describe("WCAG contrast helpers", () => {
   it("computes the reference black/white ratio as 21:1", () => {
@@ -27,10 +20,7 @@ describe("WCAG contrast helpers", () => {
   });
 
   it("is order-independent and bounded", () => {
-    expect(contrastRatio("#d81f26", "#ffffff")).toBeCloseTo(
-      contrastRatio("#ffffff", "#d81f26"),
-      5,
-    );
+    expect(contrastRatio("#d81f26", "#ffffff")).toBeCloseTo(contrastRatio("#ffffff", "#d81f26"), 5);
     expect(relativeLuminance("#000000")).toBeCloseTo(0, 5);
     expect(relativeLuminance("#ffffff")).toBeCloseTo(1, 5);
   });
@@ -94,9 +84,7 @@ describe.each(MODES)("%s theme — WCAG 2.2 AA", (mode) => {
 
   it("the focus ring clears non-text contrast on the app surface (SC 1.4.11)", () => {
     const colors = mode === "light" ? lightColors : darkColors;
-    expect(
-      meetsAA(contrastRatio(colors.focus, colors.surface.app), { large: true }),
-    ).toBe(true);
+    expect(meetsAA(contrastRatio(colors.focus, colors.surface.app), { large: true })).toBe(true);
   });
 });
 
@@ -130,16 +118,12 @@ describe("theme shape, elevation & motion", () => {
   });
 
   it("honours prefers-reduced-motion via CssBaseline", () => {
-    const overrides = JSON.stringify(
-      theme.components?.MuiCssBaseline?.styleOverrides,
-    );
+    const overrides = JSON.stringify(theme.components?.MuiCssBaseline?.styleOverrides);
     expect(overrides).toContain("prefers-reduced-motion");
   });
 
   it("wires a global focus-visible outline", () => {
-    const overrides = JSON.stringify(
-      theme.components?.MuiCssBaseline?.styleOverrides,
-    );
+    const overrides = JSON.stringify(theme.components?.MuiCssBaseline?.styleOverrides);
     expect(overrides).toContain("focus-visible");
   });
 });

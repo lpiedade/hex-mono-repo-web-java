@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createItem,
   deleteItem,
@@ -51,6 +51,7 @@ function clearCookies() {
   }
 }
 
+// The Vitest config restores spies and stubbed globals before every test.
 beforeEach(() => {
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
@@ -58,11 +59,6 @@ beforeEach(() => {
   vi.spyOn(browser, "reload").mockImplementation(() => {});
   resetLoginRedirect();
   clearCookies();
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-  vi.restoreAllMocks();
 });
 
 describe("the portal client", () => {
@@ -105,7 +101,9 @@ describe("the portal client", () => {
   });
 
   it("reads the caller, the BFF build and the API build", async () => {
-    fetchMock.mockResolvedValueOnce(json(200, { schemaVersion: 1, subject: "dev", roles: ["ADMIN"] }));
+    fetchMock.mockResolvedValueOnce(
+      json(200, { schemaVersion: 1, subject: "dev", roles: ["ADMIN"] }),
+    );
     expect((await getUserContext())?.subject).toBe("dev");
     expect(new URL(lastRequest().url).pathname).toBe("/app/bff/v1/user-context");
 
@@ -217,7 +215,7 @@ describe("a missing session (ADR-010)", () => {
   });
 
   it("navigates once when several requests fail together", async () => {
-    fetchMock.mockImplementation(async () => unauthenticated());
+    fetchMock.mockImplementation(() => Promise.resolve(unauthenticated()));
 
     await Promise.allSettled([listItems(), getUserContext(), getApiAbout()]);
 
@@ -227,7 +225,9 @@ describe("a missing session (ADR-010)", () => {
   it("does not log in again for a 401 the application API itself returned", async () => {
     // A refused *upstream* token is not fixed by a browser login, and treating
     // it as one would loop.
-    fetchMock.mockResolvedValue(json(401, { status: 401, code: "UNAUTHENTICATED", schemaVersion: 1 }));
+    fetchMock.mockResolvedValue(
+      json(401, { status: 401, code: "UNAUTHENTICATED", schemaVersion: 1 }),
+    );
 
     await expect(listItems()).rejects.toBeInstanceOf(ApiError);
 

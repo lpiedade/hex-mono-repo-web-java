@@ -20,19 +20,23 @@ function flatten(obj: Json, prefix = ""): [string, string][] {
 }
 
 const bundles: Record<string, Json> = {
-  "en-US": enUS as Json,
-  "pt-BR": ptBR as Json,
+  "en-US": enUS,
+  "pt-BR": ptBR,
 };
 
 describe("locale bundles", () => {
-  const reference = flatten(bundles["en-US"]).map(([k]) => k).sort();
+  const reference = flatten(bundles["en-US"])
+    .map(([k]) => k)
+    .sort();
 
   it("exist for exactly the supported locales", () => {
     expect(Object.keys(bundles).sort()).toEqual([...SUPPORTED_LOCALES].sort());
   });
 
   it.each(Object.keys(bundles))("%s has the same keys as en-US", (locale) => {
-    const keys = flatten(bundles[locale]).map(([k]) => k).sort();
+    const keys = flatten(bundles[locale])
+      .map(([k]) => k)
+      .sort();
     expect(keys).toEqual(reference);
   });
 

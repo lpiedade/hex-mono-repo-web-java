@@ -18,11 +18,11 @@ import { describe, expect, it } from "vitest";
  * review stand against it.
  */
 
-const sources = import.meta.glob("../**/*.tsx", {
+const sources = import.meta.glob<string>("../**/*.tsx", {
   query: "?raw",
   eager: true,
   import: "default",
-}) as Record<string, string>;
+});
 
 /**
  * `const fooMutation = useMutation({` and whether the next line marks it.
@@ -68,7 +68,10 @@ describe("the error-reporting inventory", () => {
   });
 
   it("carries exactly the mutations recorded as unreported", () => {
-    const unmarked = all.filter((m) => !m.marked).map((m) => m.id).sort();
+    const unmarked = all
+      .filter((m) => !m.marked)
+      .map((m) => m.id)
+      .sort();
     expect(
       unmarked,
       "a mutation with no inline report and no entry in CARRIED_BY_THE_NET: " +

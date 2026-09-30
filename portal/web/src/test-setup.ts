@@ -1,4 +1,87 @@
 import "@testing-library/jest-dom";
+import type { MockInstance } from "vitest";
+
+/**
+ * **A test fails on console output it did not ask for.**
+ *
+ * `console.error` and `console.warn` are where React reports an update outside
+ * `act()`, a missing key or an invalid prop, where MUI reports a misused
+ * component, and where the portal reports a missing translation. A suite that
+ * lets them scroll past stays green while each of those defects ships, and a
+ * suite that mutes them wholesale hides them for good.
+ *
+ * So both are captured for every test and, unless the test declared the output
+ * with {@link expectConsole}, the test fails afterwards with the captured lines
+ * in its message. React's "not wrapped in act(...)" warning fails a test even
+ * when it declared console errors: no test is about one, and a suite that
+ * expects the portal's own logging must not become a place where they hide.
+ */
+type ConsoleLevel = "error" | "warn";
+type ConsoleSpy = MockInstance<(...args: unknown[]) => void>;
+
+const LEVELS: readonly ConsoleLevel[] = ["error", "warn"];
+const expected = new Set<ConsoleLevel>();
+const captured: Record<ConsoleLevel, unknown[][]> = { error: [], warn: [] };
+const spies = new Map<ConsoleLevel, ConsoleSpy>();
+
+/**
+ * Declares that the running test expects `console.<level>` output, and returns
+ * the spy so the test can assert what was written. The output is still kept
+ * off the terminal.
+ */
+export function expectConsole(level: ConsoleLevel): ConsoleSpy {
+  expected.add(level);
+  const spy = spies.get(level);
+  if (!spy) throw new Error("expectConsole is only available inside a test");
+  return spy;
+}
+
+function describeArgument(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value instanceof Error) return `${value.name}: ${value.message}`;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+beforeEach(() => {
+  expected.clear();
+  for (const level of LEVELS) {
+    captured[level] = [];
+    const spy = vi.spyOn(console, level).mockImplementation((...args: unknown[]) => {
+      captured[level].push(args);
+    });
+    spies.set(level, spy as ConsoleSpy);
+  }
+});
+
+/** Output no test may expect — see above. */
+const NEVER_EXPECTED = /not wrapped in act\(/;
+
+afterEach(() => {
+  const lines = (level: ConsoleLevel) =>
+    captured[level].map((args) => args.map(describeArgument).join(" "));
+  const unexpected = LEVELS.map((level) => ({
+    level,
+    lines: expected.has(level)
+      ? lines(level).filter((line) => NEVER_EXPECTED.test(line))
+      : lines(level),
+  })).filter(({ lines: found }) => found.length > 0);
+  if (unexpected.length === 0) return;
+
+  const report = unexpected
+    .map(
+      ({ level, lines: found }) =>
+        `console.${level} was called ${found.length} time(s):\n` +
+        found.map((line) => `  ${line}`).join("\n"),
+    )
+    .join("\n");
+  throw new Error(
+    `${report}\nFix the cause, or declare the output with expectConsole() if the test is about it.`,
+  );
+});
 
 /**
  * jsdom implements no layout and no `matchMedia`, so MUI's `useMediaQuery`

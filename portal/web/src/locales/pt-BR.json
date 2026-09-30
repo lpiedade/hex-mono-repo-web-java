@@ -3,7 +3,8 @@
     "name": "Portal da Aplicação",
     "mark": "A",
     "skipToContent": "Pular para o conteúdo principal",
-    "contentLoading": "Carregando conteúdo"
+    "contentLoading": "Carregando conteúdo",
+    "documentTitle": "{{page}} · {{app}}"
   },
   "nav": {
     "label": "Navegação principal",
@@ -128,6 +129,12 @@
   "notFound": {
     "title": "Página não encontrada",
     "body": "Não há nada em {{path}}.",
+    "home": "Ir para o início"
+  },
+  "routeError": {
+    "title": "Não foi possível exibir esta página",
+    "body": "Algo deu errado ao abrir esta página. Recarregue para tentar de novo ou volte ao início.",
+    "reload": "Recarregar página",
     "home": "Ir para o início"
   }
 }

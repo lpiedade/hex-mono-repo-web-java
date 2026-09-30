@@ -4,9 +4,11 @@ import { describe, expect, it } from "vitest";
 // this suite, and `?raw` keeps it free of `@types/node` — which this project
 // keeps out of `tsconfig.json`'s `types` so browser code cannot reach for Node
 // globals.
+import type { RouteObject } from "react-router-dom";
 import contractYaml from "../../../../docs/arch/api-layer/portal-api-v1.yaml?raw";
 import clientSource from "../api/client.ts?raw";
 import { NAV_ITEMS } from "../layout/navItems";
+import { routes } from "../router";
 
 /**
  * Every route `api/client.ts` calls is one `portal-api-v1.yaml` declares
@@ -53,12 +55,26 @@ function typedClientCalls(source: string): string[] {
 
 /** The schema name a declared response carries, e.g. `ItemList`. */
 function responseSchema(operation: string, status: string): string | undefined {
-  const ref = declared.get(operation)?.responses?.[status]?.content?.["application/json"]?.schema
-    ?.$ref;
+  const ref =
+    declared.get(operation)?.responses?.[status]?.content?.["application/json"]?.schema?.$ref;
   return ref?.split("/").pop();
 }
 
 const calls = typedClientCalls(clientSource);
+
+/**
+ * The first path segment of every route in the tree, however deeply it is
+ * nested — `items` for `/items/:itemId/history` as much as for `/items`. The
+ * catch-all matches anything and names nothing, so it is left out.
+ */
+function firstSegments(tree: RouteObject[], parent = ""): string[] {
+  return tree.flatMap((route) => {
+    const path = route.path ? `${parent}/${route.path}` : parent;
+    const first = path.split("/").find((segment) => segment !== "");
+    const own = route.path && first && first !== "*" ? [first] : [];
+    return [...own, ...firstSegments(route.children ?? [], path)];
+  });
+}
 
 describe("the portal client and the BFF contract", () => {
   /*
@@ -85,13 +101,28 @@ describe("the portal client and the BFF contract", () => {
     expect(contract.servers?.[0]?.url).toBe("/app");
   });
 
-  it("leaves the BFF's own paths to the BFF", () => {
+  describe("the BFF's own paths", () => {
     // The SPA and the BFF share one origin under `/app`. A client route whose
     // first segment is also a contract path's — `/about`, `/health`, `/bff` —
     // would be answered by the BFF on a reload, with JSON instead of the page.
     const reserved = new Set([...declared.keys()].map((op) => op.split(" ")[1].split("/")[1]));
-    const clientSegments = NAV_ITEMS.map((item) => item.to.split("/")[1]).filter(Boolean);
-    expect(clientSegments.filter((segment) => reserved.has(segment))).toEqual([]);
+    const routeSegments = firstSegments(routes);
+
+    it("are recognised, and every route of the tree is read", () => {
+      // Floors, not counts: a walker that silently found nothing would make the
+      // assertion below pass while checking nothing.
+      expect([...reserved]).toEqual(expect.arrayContaining(["bff", "about", "health"]));
+      expect(routeSegments).toEqual(expect.arrayContaining(["items", "build"]));
+    });
+
+    it("are left to the BFF by every route, whether or not the navigation links to it", () => {
+      expect(routeSegments.filter((segment) => reserved.has(segment))).toEqual([]);
+    });
+
+    it("are left to the BFF by every navigation entry", () => {
+      const navSegments = NAV_ITEMS.map((item) => item.to.split("/")[1]).filter(Boolean);
+      expect(navSegments.filter((segment) => reserved.has(segment))).toEqual([]);
+    });
   });
 
   describe("the response shapes the items screen assumes", () => {

@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import i18n, { DEFAULT_LOCALE } from "../i18n";
@@ -62,6 +62,22 @@ describe("ApiErrorBanner", () => {
       expect(copied).toContain("13e6d336-abcd-1234");
       expect(copied).not.toContain("already exists");
     });
+
+    it("claims no copy when the clipboard refuses, and stays usable", async () => {
+      const user = userEvent.setup();
+      const writeText = vi.fn().mockRejectedValue(new DOMException("Denied", "NotAllowedError"));
+      Object.defineProperty(navigator, "clipboard", {
+        value: { writeText },
+        configurable: true,
+      });
+      render(err);
+
+      await user.click(screen.getByRole("button", { name: tRe("error.apiCopySummary") }));
+
+      await waitFor(() => expect(writeText).toHaveBeenCalled());
+      expect(screen.queryByText(tRe("error.apiCopied"))).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: tRe("error.apiCopySummary") })).toBeEnabled();
+    });
   });
 
   describe("the BFF's 503 UPSTREAM_UNAVAILABLE", () => {
@@ -103,6 +119,9 @@ describe("ApiErrorBanner", () => {
 
   describe("another locale", () => {
     afterEach(async () => {
+      // Unmount first: the locale is global, and switching it back under a
+      // mounted banner would re-render a tree the test has finished with.
+      cleanup();
       await i18n.changeLanguage(DEFAULT_LOCALE);
     });
 

@@ -1,7 +1,8 @@
 # Coverage ratchet — the floors the build holds
 
 - Status: Enforced
-- Last measured: the template baseline — the example aggregate `items` alone
+- Last measured: the template baseline — the example aggregate `items` alone —
+  for the Java modules; 2026-09-30 for `portal/web` (§6)
 - Commands: `mvn clean verify` (Java), `npm run test:coverage` from `portal/web/`
 - Tools: JaCoCo, with unit and integration execution data merged per module;
   Vitest with `@vitest/coverage-v8`
@@ -54,10 +55,10 @@ their coverage moves with the contract, not the product.
 
 | Counter | Floor | Measured at |
 | --- | ---: | --- |
-| Statements | `98.53` | template baseline (2016/2046) |
-| Branches | `95.17` | template baseline (473/497) |
-| Functions | `93.47` | template baseline (129/138) |
-| Lines | `98.53` | template baseline (2016/2046) |
+| Statements | `99.07` | 2026-09-30, on `9496d0a` + the data-router change (2143/2163) |
+| Branches | `95.90` | 2026-09-30, on `9496d0a` + the data-router change (515/537) |
+| Functions | `94.73` | 2026-09-30, on `9496d0a` + the data-router change (144/152) |
+| Lines | `99.07` | 2026-09-30, on `9496d0a` + the data-router change (2143/2163) |
 
 Vitest thresholds are percentages (`0`–`100`); the table uses the same unit as
 the config file.
@@ -124,3 +125,6 @@ difference is visible in review, which is why the procedure is a committed diff.
 
 | Date | Commit | Module / counter | From | To | Reason |
 | --- | --- | --- | ---: | ---: | --- |
+| 2026-09-30 | on `9496d0a` | `portal/web` statements / lines | `98.53` | `99.07` | Raised: route tree, error pages, document title and color-mode provider landed with their suites |
+| 2026-09-30 | on `9496d0a` | `portal/web` branches | `95.17` | `95.90` | Raised, same change |
+| 2026-09-30 | on `9496d0a` | `portal/web` functions | `93.47` | `94.73` | Raised, same change |

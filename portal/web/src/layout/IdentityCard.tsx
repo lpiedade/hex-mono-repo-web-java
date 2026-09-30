@@ -5,14 +5,16 @@ import { useTranslation } from "react-i18next";
 import { getUserContext, logout } from "../api/client";
 
 /** The query key every reader of the caller's identity shares. */
-export const USER_CONTEXT_KEY = ["user-context"] as const;
+const USER_CONTEXT_KEY = ["user-context"] as const;
 
 /** Two-letter avatar initials derived from the subject, uppercased. */
-export function initialsOf(subject: string | undefined): string {
+function initialsOf(subject: string | undefined): string {
   if (!subject) return "··";
-  const parts = subject.trim().split(/[\s._@-]+/).filter(Boolean);
-  const letters =
-    parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}` : subject.slice(0, 2);
+  const parts = subject
+    .trim()
+    .split(/[\s._@-]+/)
+    .filter(Boolean);
+  const letters = parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}` : subject.slice(0, 2);
   return letters.toUpperCase();
 }
 
@@ -38,7 +40,15 @@ export function IdentityCard({ collapsed = false }: { collapsed?: boolean }) {
 
   if (collapsed) {
     return (
-      <Box sx={{ p: 1, borderTop: 1, borderColor: "divider", display: "flex", justifyContent: "center" }}>
+      <Box
+        sx={{
+          p: 1,
+          borderTop: 1,
+          borderColor: "divider",
+          display: "flex",
+          justifyContent: "center",
+        }}
+      >
         <Tooltip title={subject ? `${signOut} (${subject})` : signOut} placement="right">
           <IconButton size="small" onClick={() => void logout()} aria-label={signOut}>
             <LogoutIcon fontSize="small" />
@@ -84,7 +94,15 @@ export function IdentityCard({ collapsed = false }: { collapsed?: boolean }) {
           <Box
             component="ul"
             aria-label={t("identity.roles")}
-            sx={{ listStyle: "none", p: 0, m: 0, mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}
+            sx={{
+              listStyle: "none",
+              p: 0,
+              m: 0,
+              mt: 1,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 0.5,
+            }}
           >
             {roles.map((role) => (
               <Box component="li" key={role}>

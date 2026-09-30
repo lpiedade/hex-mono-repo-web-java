@@ -3,7 +3,8 @@
     "name": "App Portal",
     "mark": "A",
     "skipToContent": "Skip to main content",
-    "contentLoading": "Loading content"
+    "contentLoading": "Loading content",
+    "documentTitle": "{{page}} · {{app}}"
   },
   "nav": {
     "label": "Main navigation",
@@ -128,6 +129,12 @@
   "notFound": {
     "title": "Page not found",
     "body": "Nothing lives at {{path}}.",
+    "home": "Go to home"
+  },
+  "routeError": {
+    "title": "This page could not be shown",
+    "body": "Something went wrong while opening this page. Reload to try again, or go back to the home page.",
+    "reload": "Reload page",
     "home": "Go to home"
   }
 }

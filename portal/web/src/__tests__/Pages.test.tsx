@@ -5,10 +5,10 @@ import "../i18n";
 import { App } from "../App";
 import { getApiAbout, getBffAbout, getUserContext, listItems } from "../api/client";
 import { ApiError } from "../api/errors";
-import { About, BuiltAt, display } from "../pages/About";
+import { About, BuiltAt } from "../pages/About";
+import { display } from "../pages/buildInfo";
 import { Home } from "../pages/Home";
 import { NotFound } from "../pages/NotFound";
-import { AppRouter } from "../router";
 import { renderWithProviders, t, tRe } from "./test-utils";
 
 vi.mock("../api/client", () => ({
@@ -32,7 +32,6 @@ beforeEach(() => {
   });
   vi.mocked(getApiAbout).mockResolvedValue({ schemaVersion: 1, build: BUILD });
   vi.mocked(listItems).mockResolvedValue({ schemaVersion: 1, items: [] });
-  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 describe("Home", () => {
@@ -51,7 +50,9 @@ describe("NotFound", () => {
   it("names the address that matched nothing and offers the way home", () => {
     renderWithProviders(<NotFound />, { initialPath: "/nowhere" });
 
-    expect(screen.getByRole("heading", { level: 1, name: t("notFound.title") })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: t("notFound.title") }),
+    ).toBeInTheDocument();
     expect(screen.getByText(t("notFound.body", { path: "/nowhere" }))).toBeInTheDocument();
     expect(screen.getByRole("link", { name: t("notFound.home") })).toHaveAttribute("href", "/");
   });
@@ -95,40 +96,6 @@ describe("About", () => {
   it("prints a dash for an absent timestamp", () => {
     render(<BuiltAt iso={undefined} locale="en-US" />);
     expect(screen.getByText("—")).toBeInTheDocument();
-  });
-});
-
-describe("the router", () => {
-  function renderAt(path: string) {
-    return renderWithProviders(
-      <AppRouter colorMode="light" onToggleColorMode={() => undefined} />,
-      { initialPath: path },
-    );
-  }
-
-  it.each([
-    ["/", "home.title"],
-    ["/items", "items.title"],
-    ["/build", "about.title"],
-    ["/no/such/page", "notFound.title"],
-  ])("renders %s inside the shell", async (path, heading) => {
-    renderAt(path);
-
-    expect(
-      await screen.findByRole("heading", { level: 1, name: t(heading) }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: t("nav.label") })).toBeInTheDocument();
-  });
-
-  it("follows the home page's link to the items", async () => {
-    const user = userEvent.setup();
-    renderAt("/");
-
-    await user.click(screen.getByRole("link", { name: tRe("home.items.cta") }));
-
-    expect(
-      await screen.findByRole("heading", { level: 1, name: t("items.title") }),
-    ).toBeInTheDocument();
   });
 });
 

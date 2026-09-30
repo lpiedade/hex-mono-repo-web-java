@@ -53,7 +53,6 @@ beforeEach(() => {
   vi.mocked(createItem).mockReset();
   vi.mocked(updateItem).mockReset();
   vi.mocked(deleteItem).mockReset();
-  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 describe("ItemsPage — the list", () => {
@@ -100,7 +99,9 @@ describe("ItemsPage — the list", () => {
   it("announces loading", () => {
     vi.mocked(listItems).mockReturnValue(new Promise(() => {}));
     renderWithProviders(<ItemsPage />);
-    expect(screen.getAllByRole("status").some((el) => el.textContent?.includes(t("pageState.loading")))).toBe(true);
+    expect(
+      screen.getAllByRole("status").some((el) => el.textContent?.includes(t("pageState.loading"))),
+    ).toBe(true);
   });
 
   it("renders a failed read as the page's own unavailable state, with the service message", async () => {
@@ -138,7 +139,10 @@ describe("ItemsPage — create", () => {
 
     await user.click(screen.getByRole("button", { name: t("items.create") }));
     const dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByRole("textbox", { name: tRe("items.fields.name") }), "Crate");
+    await user.type(
+      within(dialog).getByRole("textbox", { name: tRe("items.fields.name") }),
+      "Crate",
+    );
     const description = within(dialog).getByRole("textbox", {
       name: tRe("items.fields.description"),
     });
@@ -184,10 +188,15 @@ describe("ItemsPage — create", () => {
 
     await user.click(screen.getByRole("button", { name: t("items.create") }));
     const dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByRole("textbox", { name: tRe("items.fields.name") }), "Anvil");
+    await user.type(
+      within(dialog).getByRole("textbox", { name: tRe("items.fields.name") }),
+      "Anvil",
+    );
     await user.click(within(dialog).getByRole("button", { name: t("common.create") }));
 
-    expect(await within(dialog).findByText("An item with this name already exists.")).toBeInTheDocument();
+    expect(
+      await within(dialog).findByText("An item with this name already exists."),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText(/corr-409/)).toBeInTheDocument();
   });
 

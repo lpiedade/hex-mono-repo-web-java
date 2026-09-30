@@ -39,7 +39,7 @@ It does **not** run the portal's Vitest suite. The React SPA is a standalone
 project with its own commands (ADR-017):
 
 ```bash
-cd portal/web && npm ci && npm run test:coverage && npm run build
+cd portal/web && npm ci && npm run lint && npm run format:check && npm run test:coverage && npm run build
 ```
 
 ```bash

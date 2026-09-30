@@ -72,10 +72,7 @@ function literalsIn(source: string): { line: number; text: string }[] {
       /(^\s*(?:describe|it|test)(?:\.\w+)?(?:\([\s\S]*?\))?\()\s*(["'`])(?:\\.|(?!\2)[^\\])*\2/,
       "$1$2$2",
     );
-    const patterns = [
-      /(["'`])((?:\\.|(?!\1)[^\\])*)\1/g,
-      /\/((?:\\.|[^/\\\n])+)\/[dgimsuy]*/g,
-    ];
+    const patterns = [/(["'`])((?:\\.|(?!\1)[^\\])*)\1/g, /\/((?:\\.|[^/\\\n])+)\/[dgimsuy]*/g];
     for (const pattern of patterns) {
       for (const match of scanned.matchAll(pattern)) {
         found.push({ line: index + 1, text: match[2] ?? match[1] });
@@ -91,16 +88,16 @@ function literalsIn(source: string): { line: number; text: string }[] {
  * outside Vite — so they resolve keys through `e2e/i18n.ts` instead.
  */
 const sources = {
-  ...(import.meta.glob("./**/*.{test,spec}.{ts,tsx}", {
+  ...import.meta.glob<string>("./**/*.{test,spec}.{ts,tsx}", {
     query: "?raw",
     eager: true,
     import: "default",
-  }) as Record<string, string>),
-  ...(import.meta.glob("../../e2e/*.spec.ts", {
+  }),
+  ...import.meta.glob<string>("../../e2e/*.spec.ts", {
     query: "?raw",
     eager: true,
     import: "default",
-  }) as Record<string, string>),
+  }),
 };
 
 describe("a test asserts the key, not the translation", () => {

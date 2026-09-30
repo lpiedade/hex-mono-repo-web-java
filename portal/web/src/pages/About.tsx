@@ -6,18 +6,7 @@ import { ApiErrorBanner } from "../components/ApiErrorBanner";
 import { KeyValueList } from "../components/KeyValueList";
 import { PageHeader } from "../components/PageHeader";
 import { SectionCard } from "../components/SectionCard";
-
-const NA = "—";
-
-/**
- * `unknown` is a value a server really sends when its build had no git
- * metadata. It is never printed: a commit rendered as the word "unknown" reads
- * as a commit named unknown, on the one page whose job is to say which code is
- * running.
- */
-export function display(value: string | undefined): string {
-  return value && value !== "unknown" ? value : NA;
-}
+import { display, NA } from "./buildInfo";
 
 /**
  * A build timestamp, in the reader's locale and the browser's zone, with the

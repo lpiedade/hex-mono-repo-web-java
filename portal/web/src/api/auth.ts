@@ -30,13 +30,14 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS", "TRACE"]);
 /**
  * Window navigation, behind a seam. jsdom cannot navigate, and its `location`
  * methods are not configurable, so tests replace these two functions instead of
- * spying on `window.location`.
+ * spying on `window.location`. Arrow functions, not methods: neither reads
+ * `this`, so either can be passed or spied on detached from the object.
  */
 export const browser = {
-  assign(url: string): void {
+  assign: (url: string): void => {
     window.location.assign(url);
   },
-  reload(): void {
+  reload: (): void => {
     window.location.reload();
   },
 };

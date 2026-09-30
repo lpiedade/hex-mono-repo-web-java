@@ -16,10 +16,7 @@ export const DEFAULT_LOCALE: SupportedLocale = "en-US";
 export const LOCALE_STORAGE_KEY = "app.locale";
 
 export function isSupportedLocale(value: unknown): value is SupportedLocale {
-  return (
-    typeof value === "string" &&
-    (SUPPORTED_LOCALES as readonly string[]).includes(value)
-  );
+  return typeof value === "string" && (SUPPORTED_LOCALES as readonly string[]).includes(value);
 }
 
 function initialLocale(): SupportedLocale {
@@ -82,7 +79,9 @@ i18n.on("languageChanged", (lng) => {
   document.documentElement.lang = lng;
 });
 
-i18n.use(initReactI18next).init({
+// The bundles are passed in, so initialization completes synchronously and the
+// returned promise carries nothing to wait for.
+void i18n.use(initReactI18next).init({
   resources: {
     "en-US": { translation: enUS },
     "pt-BR": { translation: ptBR },

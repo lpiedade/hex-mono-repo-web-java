@@ -2,7 +2,8 @@ import { screen } from "@testing-library/react";
 import { Button } from "@mui/material";
 import { describe, it, expect } from "vitest";
 import "../i18n";
-import { PageHeader, PAGE_STATES } from "../components/PageHeader";
+import { PageHeader } from "../components/PageHeader";
+import { PAGE_STATES } from "../components/pageState";
 import { renderWithProviders } from "./test-utils";
 
 describe("PageHeader", () => {
@@ -33,15 +34,7 @@ describe("PageHeader", () => {
 
   it("exposes all seven non-ready page states as a shared pattern", () => {
     expect([...PAGE_STATES].sort()).toEqual(
-      [
-        "empty",
-        "error",
-        "forbidden",
-        "loading",
-        "partial",
-        "stale",
-        "unavailable",
-      ].sort(),
+      ["empty", "error", "forbidden", "loading", "partial", "stale", "unavailable"].sort(),
     );
   });
 
@@ -51,9 +44,7 @@ describe("PageHeader", () => {
   });
 
   it("renders error and forbidden states as alert notices", () => {
-    const { unmount } = renderWithProviders(
-      <PageHeader title="Quarterly orders" state="error" />,
-    );
+    const { unmount } = renderWithProviders(<PageHeader title="Quarterly orders" state="error" />);
     expect(screen.getByRole("alert")).toBeTruthy();
     unmount();
     renderWithProviders(<PageHeader title="Quarterly orders" state="forbidden" />);
@@ -69,11 +60,7 @@ describe("PageHeader", () => {
 
   it("lets a page override the default state message", () => {
     renderWithProviders(
-      <PageHeader
-        title="Quarterly orders"
-        state="error"
-        stateMessage="Custom failure message"
-      />,
+      <PageHeader title="Quarterly orders" state="error" stateMessage="Custom failure message" />,
     );
     expect(screen.getByText("Custom failure message")).toBeTruthy();
   });

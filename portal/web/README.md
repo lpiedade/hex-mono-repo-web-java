@@ -16,8 +16,10 @@ Run from `portal/web/` (Node 20):
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Vite dev server; proxies `/app/bff`, `/app/health`, `/app/about` to the BFF on `localhost:8081`. |
-| `npm run generate:api` | Regenerates `src/api/portal-api.d.ts` from `../../docs/arch/api-layer/portal-api-v1.yaml`. Runs before `build`, `test` and `test:coverage`. |
-| `npm run typecheck` | `tsc --noEmit` (strict). |
+| `npm run generate:api` | Regenerates `src/api/portal-api.d.ts` from `../../docs/arch/api-layer/portal-api-v1.yaml`. Runs before `build`, `test`, `test:coverage`, `typecheck` and `lint`. |
+| `npm run typecheck` | `tsc --noEmit` (strict) over both projects: `tsconfig.json` (the browser code) and `tsconfig.e2e.json` (the Playwright suites and their config). |
+| `npm run lint` | ESLint, type-aware — typescript-eslint, react-hooks, react-refresh, jsx-a11y — with `--max-warnings 0`. |
+| `npm run format` / `npm run format:check` | Prettier: write the formatting / fail on a file that differs. |
 | `npm test` | Vitest, once. The fast inner loop — holds no coverage floor. |
 | `npm run test:coverage` | Typecheck, then Vitest with the coverage ratchet. **This is the gate CI runs.** |
 | `npm run build` | Typecheck + production build into `dist/`. |
@@ -32,11 +34,16 @@ src/
                 errors.ts (Problem Details), errorReporting.ts (global net)
   components/   generic primitives: PageHeader, DataTable, Banner,
                 ApiErrorBanner, ConfirmDialog, SectionCard, KeyValueList, …
-  layout/       Shell, Nav, TopBar, IdentityCard, navItems.ts
-  pages/        Home, items/ (the example resource), About (/build), NotFound
-  theme/        tokens, MUI theme, contrast helpers, self-hosted fonts
+  hooks/        cross-screen hooks: useDocumentTitle / useRouteTitle
+  layout/       Shell, ShellLayout (the root route), Nav, TopBar, IdentityCard,
+                navItems.ts
+  pages/        Home, items/ (the example resource), About (/build), NotFound,
+                RouteError (the error pages)
+  theme/        tokens, MUI theme, contrast helpers, self-hosted fonts,
+                ColorModeProvider
   locales/      en-US.json, pt-BR.json
   __tests__/    Vitest suites and test-utils
+  router.tsx    the route tree (data router), App.tsx, queryClient.ts
 e2e/            Playwright suites: *.a11y.spec.ts, *.journey.spec.ts
 ```
 
@@ -50,15 +57,21 @@ e2e/            Playwright suites: *.a11y.spec.ts, *.journey.spec.ts
 | anything else | Not found, inside the shell. |
 
 `/app/bff/**`, `/app/about` and `/app/health` belong to the BFF, so no client
-route may start with `bff`, `about` or `health`; `apiContract.test.ts` checks
-the navigation against the contract.
+route may start with `bff`, `about` or `health`; `apiContract.test.ts` walks
+the route tree and the navigation and checks them against the contract.
+
+Every route renders inside the shell and declares an `errorElement` (a screen
+that throws, or whose chunk fails to load, is replaced by `RouteError` inside
+the shell) and a `handle.titleKey` (the document title, `<page> · <app>`).
+Screens beyond the landing page are loaded on demand (`lazy`).
 
 ## Adding a resource
 
 1. Add the operations to `openapi-v1.yaml` and their proxied twins to
    `portal-api-v1.yaml`, then `npm run generate:api`.
 2. Add typed calls to `src/api/client.ts`.
-3. Add a page under `src/pages/<resource>/`, a route in `src/router.tsx` and an
+3. Add a page under `src/pages/<resource>/`, a route in `src/router.tsx` — lazy,
+   with `errorElement: <RouteError />` and `handle: titled("<key>")` — and an
    entry in `src/layout/navItems.ts`.
 4. Add every new key to **both** locale bundles.
 5. Write the Vitest suite beside the others; mock `../api/client` in screen

@@ -38,8 +38,7 @@ function comparePresent(
   collator: Intl.Collator,
 ): number {
   if (typeof a === "number" && typeof b === "number") return a - b;
-  if (typeof a === "boolean" && typeof b === "boolean")
-    return Number(a) - Number(b);
+  if (typeof a === "boolean" && typeof b === "boolean") return Number(a) - Number(b);
   if (a instanceof Date && b instanceof Date) return a.getTime() - b.getTime();
 
   return collator.compare(String(a), String(b));
@@ -104,9 +103,7 @@ export function useClientSort<Row>(
       keep the order the backend sent, which makes the display deterministic
       across re-renders rather than merely consistent within one.
     */
-    return [...rows].sort((a, b) =>
-      compareValues(accessor(a), accessor(b), collator, factor),
-    );
+    return [...rows].sort((a, b) => compareValues(accessor(a), accessor(b), collator, factor));
   }, [rows, sort, accessors, collator]);
 
   /**
@@ -118,8 +115,7 @@ export function useClientSort<Row>(
   function onSortChange(columnId: string) {
     setSort((current) => ({
       by: columnId,
-      direction:
-        current?.by === columnId && current.direction === "asc" ? "desc" : "asc",
+      direction: current?.by === columnId && current.direction === "asc" ? "desc" : "asc",
     }));
   }
 

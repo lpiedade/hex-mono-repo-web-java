@@ -3,51 +3,10 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Banner, type BannerSeverity } from "./Banner";
 import { visuallyHidden } from "./a11y";
-
-/**
- * The explicit page-state model every screen supports. `ready` is the normal
- * content state; the others surface as a shared notice under the heading so
- * users get consistent loading/empty/degraded/error feedback.
- */
-export type PageState =
-  | "ready"
-  | "loading"
-  | "empty"
-  | "partial"
-  | "stale"
-  | "unavailable"
-  | "forbidden"
-  | "error";
-
-/**
- * Maps a query's loading/error flags onto the page-state vocabulary.
- *
- * Every data-backed screen needs the same three-way choice, and writing it
- * inline invites one screen to drift — reporting an error as "empty", say,
- * which reads as "there is nothing" rather than "we could not tell".
- */
-export function pageStateOf(query: { isLoading: boolean; isError: boolean }): PageState {
-  if (query.isLoading) return "loading";
-  if (query.isError) return "unavailable";
-  return "ready";
-}
-
-/** The non-ready states of the shared page-state pattern. */
-export const PAGE_STATES: readonly Exclude<PageState, "ready">[] = [
-  "loading",
-  "empty",
-  "partial",
-  "stale",
-  "unavailable",
-  "forbidden",
-  "error",
-] as const;
+import type { PageState } from "./pageState";
 
 /** How each banner-surfaced state maps onto a severity (loading is separate). */
-const STATE_SEVERITY: Record<
-  Exclude<PageState, "ready" | "loading">,
-  BannerSeverity
-> = {
+const STATE_SEVERITY: Record<Exclude<PageState, "ready" | "loading">, BannerSeverity> = {
   empty: "info",
   partial: "warning",
   stale: "warning",
@@ -93,12 +52,7 @@ export function PageHeader({
         gap={2}
       >
         <Box sx={{ minWidth: 0 }}>
-          <Typography
-            id={headingId}
-            variant="h4"
-            component="h1"
-            sx={{ wordBreak: "break-word" }}
-          >
+          <Typography id={headingId} variant="h4" component="h1" sx={{ wordBreak: "break-word" }}>
             {title}
           </Typography>
           {subtitle ? (
@@ -120,13 +74,7 @@ export function PageHeader({
  * message defaults to the localized `pageState.<state>` key and can be
  * overridden per page.
  */
-export function PageStateNotice({
-  state,
-  message,
-}: {
-  state: PageState;
-  message?: string;
-}) {
+export function PageStateNotice({ state, message }: { state: PageState; message?: string }) {
   const { t } = useTranslation();
   if (state === "ready") return null;
 

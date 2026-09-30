@@ -436,6 +436,18 @@ jobs:
         working-directory: portal/web
         run: npm ci
 
+      # Type-aware ESLint (it regenerates the contract types first, through
+      # `prelint`) with --max-warnings 0, so a warning fails like an error.
+      - name: Frontend — lint (ESLint)
+        if: steps.scope.outputs.build == 'true'
+        working-directory: portal/web
+        run: npm run lint
+
+      - name: Frontend — formatting (Prettier)
+        if: steps.scope.outputs.build == 'true'
+        working-directory: portal/web
+        run: npm run format:check
+
       # `test:coverage`, not `test`.  Vitest evaluates the coverage thresholds in
       # vite.config.ts only when --coverage is passed, so `npm test` would run
       # the same suite and hold no floor (ADR-019).

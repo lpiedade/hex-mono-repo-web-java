@@ -1,12 +1,13 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider, useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@mui/material";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "../i18n";
-import { createQueryClient } from "../App";
 import { ApiError } from "../api/errors";
+import { createQueryClient } from "../queryClient";
+import { expectConsole } from "../test-setup";
 import { tRe } from "./test-utils";
 import {
   REPORTED_INLINE,
@@ -51,21 +52,19 @@ function renderWith(ui: ReactElement) {
 function SilentScreen({ meta }: { meta?: typeof REPORTED_INLINE }) {
   const mutation = useMutation({
     ...(meta ? { meta } : {}),
-    mutationFn: async () => {
-      throw PROBLEM;
-    },
+    mutationFn: () => Promise.reject(PROBLEM),
   });
   return <Button onClick={() => mutation.mutate()}>act</Button>;
 }
 
 describe("the global error safety net", () => {
   beforeEach(() => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    // Every report is logged — that is half of what this suite asserts.
+    expectConsole("error");
   });
 
   afterEach(() => {
     resetErrorReporting();
-    vi.restoreAllMocks();
   });
 
   describe("a mutation no screen reports", () => {
@@ -117,6 +116,23 @@ describe("the global error safety net", () => {
       expect(copied).toContain("corr-4242");
       expect(copied).not.toMatch(/\bat\s+\S+:\d+:\d+/);
     });
+
+    it("keeps the report on screen when the clipboard refuses", async () => {
+      const user = userEvent.setup();
+      const writeText = vi.fn().mockRejectedValue(new DOMException("Denied", "NotAllowedError"));
+      Object.defineProperty(navigator, "clipboard", {
+        value: { writeText },
+        configurable: true,
+      });
+      renderWith(<SilentScreen />);
+
+      await user.click(screen.getByRole("button", { name: "act" }));
+      await user.click(await screen.findByRole("button", { name: tRe("error.apiCopySummary") }));
+
+      await waitFor(() => expect(writeText).toHaveBeenCalled());
+      expect(screen.getByRole("alert")).toHaveTextContent("corr-4242");
+      expect(screen.queryByText(tRe("error.apiCopied"))).not.toBeInTheDocument();
+    });
   });
 
   /**
@@ -145,9 +161,8 @@ describe("the global error safety net", () => {
       const user = userEvent.setup();
       function NetworkDown() {
         const mutation = useMutation({
-          mutationFn: async () => {
-            throw new Error("Failed to fetch http://api.internal:8080/api/v1/items");
-          },
+          mutationFn: () =>
+            Promise.reject(new Error("Failed to fetch http://api.internal:8080/api/v1/items")),
         });
         return <Button onClick={() => mutation.mutate()}>act</Button>;
       }
@@ -171,43 +186,51 @@ describe("the global error safety net", () => {
      * One snackbar per report would bury the screen it is trying to inform, so
      * an identical message arriving while the current one is open is dropped.
      */
-    it("raise one snackbar however many times the same one is reported", async () => {
+    // `reportError` is called from outside React here, as the mutation cache
+    // calls it, so each report's re-render is flushed inside act.
+    it("raise one snackbar however many times the same one is reported", () => {
       renderWith(<div />);
 
-      for (let i = 0; i < 5; i++) reportError(PROBLEM, "mutation");
+      act(() => {
+        for (let i = 0; i < 5; i++) reportError(PROBLEM, "mutation");
+      });
 
-      await waitFor(() => expect(screen.getAllByRole("alert")).toHaveLength(1));
+      expect(screen.getAllByRole("alert")).toHaveLength(1);
     });
 
-    it("replace the snackbar when a different failure arrives", async () => {
+    it("replace the snackbar when a different failure arrives", () => {
       renderWith(<div />);
 
-      reportError(PROBLEM, "mutation");
-      await screen.findByRole("alert");
+      act(() => {
+        reportError(PROBLEM, "mutation");
+      });
+      expect(screen.getByRole("alert")).toBeInTheDocument();
 
-      reportError(new ApiError(500, { detail: "Something broke upstream" }), "mutation");
+      act(() => {
+        reportError(new ApiError(500, { detail: "Something broke upstream" }), "mutation");
+      });
 
-      await waitFor(() =>
-        expect(screen.getByRole("alert")).toHaveTextContent(/something broke upstream/i),
-      );
+      expect(screen.getByRole("alert")).toHaveTextContent(/something broke upstream/i);
       expect(screen.getAllByRole("alert")).toHaveLength(1);
     });
   });
 
   describe("an unreachable application API", () => {
-    it("is shown as the service being unavailable, with its correlation id", async () => {
+    it("is shown as the service being unavailable, with its correlation id", () => {
       renderWith(<div />);
 
-      reportError(
-        new ApiError(503, {
-          detail: "The application API did not answer",
-          code: "UPSTREAM_UNAVAILABLE",
-          correlationId: "corr-503",
-        }),
-        "mutation",
-      );
+      act(() => {
+        reportError(
+          new ApiError(503, {
+            detail: "The application API did not answer",
+            code: "UPSTREAM_UNAVAILABLE",
+            correlationId: "corr-503",
+          }),
+          "mutation",
+        );
+      });
 
-      const alert = await screen.findByRole("alert");
+      const alert = screen.getByRole("alert");
       expect(alert).toHaveTextContent(tRe("error.upstreamUnavailable"));
       expect(alert).toHaveTextContent("corr-503");
     });
@@ -222,9 +245,7 @@ describe("the global error safety net", () => {
       function ScreenWithOwnState() {
         const query = useQuery({
           queryKey: ["fails"],
-          queryFn: async () => {
-            throw PROBLEM;
-          },
+          queryFn: () => Promise.reject(PROBLEM),
         });
         return <div>{query.isError ? "unavailable" : "loading"}</div>;
       }

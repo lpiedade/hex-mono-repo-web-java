@@ -22,7 +22,7 @@ import { tAny, tAnyExact } from "./i18n";
  * fixture would point at `vite preview` and the suite would run against a
  * portal with no BFF behind it instead of failing.
  */
-test.beforeEach(async () => {
+test.beforeEach(() => {
   expect(
     process.env.E2E_BASE_URL,
     "E2E_BASE_URL is not set — the journey suite needs a running stack, and skipping " +

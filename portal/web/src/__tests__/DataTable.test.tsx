@@ -59,9 +59,7 @@ describe("DataTable structure", () => {
   });
 
   it("shows the empty message when there are no rows", () => {
-    renderWithProviders(
-      baseTable({ rows: [], emptyMessage: "Nobody here" }),
-    );
+    renderWithProviders(baseTable({ rows: [], emptyMessage: "Nobody here" }));
     expect(screen.getByText("Nobody here")).toBeTruthy();
   });
 });
@@ -79,9 +77,7 @@ describe("DataTable sorting", () => {
 
   it("calls onSortChange with the column id when a sortable header is activated", async () => {
     const onSortChange = vi.fn();
-    renderWithProviders(
-      baseTable({ sort: { by: "name", direction: "asc" }, onSortChange }),
-    );
+    renderWithProviders(baseTable({ sort: { by: "name", direction: "asc" }, onSortChange }));
     await userEvent.click(screen.getByRole("button", { name: /Given name/ }));
     expect(onSortChange).toHaveBeenCalledWith("name");
   });
@@ -125,12 +121,8 @@ describe("DataTable pagination", () => {
   });
 
   it("drops any offered page size above the 100 ceiling", () => {
-    renderWithProviders(
-      baseTable({ ...paginationProps, rowsPerPageOptions: [25, 50, 100, 250] }),
-    );
-    const values = screen
-      .getAllByRole("option")
-      .map((o) => Number((o as HTMLOptionElement).value));
+    renderWithProviders(baseTable({ ...paginationProps, rowsPerPageOptions: [25, 50, 100, 250] }));
+    const values = screen.getAllByRole("option").map((o) => Number((o as HTMLOptionElement).value));
     expect(values).not.toContain(250);
     expect(Math.max(...values)).toBe(100);
   });
@@ -138,9 +130,7 @@ describe("DataTable pagination", () => {
   it("advances the page with a keyboard-operable next control", async () => {
     const onPageChange = vi.fn();
     renderWithProviders(baseTable({ ...paginationProps, onPageChange }));
-    await userEvent.click(
-      screen.getByRole("button", { name: tRe("table.pagination.nextPage") }),
-    );
+    await userEvent.click(screen.getByRole("button", { name: tRe("table.pagination.nextPage") }));
     expect(onPageChange).toHaveBeenCalledWith(1);
   });
 
@@ -152,9 +142,7 @@ describe("DataTable pagination", () => {
 
 describe("DataTable plain rendering", () => {
   it("renders API-supplied cell content as text, never active HTML", () => {
-    const hostile: Person[] = [
-      { id: "x", name: "<img src=x onerror=alert(1)>", role: "<b>b</b>" },
-    ];
+    const hostile: Person[] = [{ id: "x", name: "<img src=x onerror=alert(1)>", role: "<b>b</b>" }];
     const { container } = renderWithProviders(baseTable({ rows: hostile }));
     expect(screen.getByText("<img src=x onerror=alert(1)>")).toBeTruthy();
     expect(container.querySelector("img")).toBeNull();
@@ -164,9 +152,7 @@ describe("DataTable plain rendering", () => {
 
 describe("DataTable visually hidden", () => {
   it("stays in the accessibility tree when rendered visually hidden, keyed by id", () => {
-    renderWithProviders(
-      baseTable({ visuallyHidden: true, id: "hidden-table-data" }),
-    );
+    renderWithProviders(baseTable({ visuallyHidden: true, id: "hidden-table-data" }));
     const table = screen.getByRole("table", { name: "People" });
     expect(table).toBeTruthy();
     // The id is on the table itself so another element can aria-describedby it.

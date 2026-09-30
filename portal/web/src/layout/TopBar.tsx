@@ -60,9 +60,7 @@ export function TopBar({
         <IconButton
           color="inherit"
           onClick={onToggleColorMode}
-          aria-label={
-            colorMode === "light" ? t("theme.toggleDark") : t("theme.toggleLight")
-          }
+          aria-label={colorMode === "light" ? t("theme.toggleDark") : t("theme.toggleLight")}
         >
           {colorMode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
         </IconButton>

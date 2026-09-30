@@ -16,9 +16,7 @@ describe("SectionCard", () => {
     );
     const region = screen.getByRole("region", { name: "Latest activity" });
     expect(region).toBeTruthy();
-    expect(
-      within(region).getByRole("heading", { level: 2, name: "Latest activity" }),
-    ).toBeTruthy();
+    expect(within(region).getByRole("heading", { level: 2, name: "Latest activity" })).toBeTruthy();
   });
 
   it("renders meta, actions, and footer note slots", () => {

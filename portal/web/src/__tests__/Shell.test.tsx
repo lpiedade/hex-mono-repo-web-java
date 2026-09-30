@@ -1,19 +1,40 @@
 import { screen } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import "../i18n";
+import { getUserContext } from "../api/client";
 import { Shell } from "../layout/Shell";
 import { renderWithProviders, t, tRe } from "./test-utils";
 
 vi.mock("../api/client", () => ({
-  getUserContext: vi.fn().mockResolvedValue({ schemaVersion: 1, subject: "dev", roles: [] }),
+  getUserContext: vi.fn(),
   logout: vi.fn(),
 }));
 
-function renderShell() {
-  return renderWithProviders(<Shell colorMode="light" onToggleColorMode={() => undefined} />);
+function renderShell(props: { pending?: boolean } = {}) {
+  return renderWithProviders(
+    <Shell colorMode="light" onToggleColorMode={() => undefined} {...props} />,
+  );
 }
 
+beforeEach(() => {
+  vi.mocked(getUserContext).mockResolvedValue({ schemaVersion: 1, subject: "dev", roles: [] });
+});
+
 describe("Shell", () => {
+  it("says the content is on its way while a navigation is pending", () => {
+    renderShell({ pending: true });
+
+    expect(screen.getByRole("progressbar", { name: t("app.contentLoading") })).toBeInTheDocument();
+    expect(screen.getByRole("main")).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("shows no progress once the page has arrived", () => {
+    renderShell();
+
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.getByRole("main")).not.toHaveAttribute("aria-busy");
+  });
+
   it("renders the skip link, the navigation, the top bar and the main region", () => {
     renderShell();
     expect(screen.getByText(tRe("app.skipToContent"))).toBeInTheDocument();

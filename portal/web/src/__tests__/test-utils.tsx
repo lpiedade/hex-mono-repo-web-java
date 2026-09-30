@@ -3,9 +3,17 @@ import CssBaseline from "@mui/material/CssBaseline";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
 import type { ComponentProps, PropsWithChildren, ReactElement } from "react";
-import { MemoryRouter } from "react-router-dom";
+import {
+  createMemoryRouter,
+  MemoryRouter,
+  RouterProvider,
+  type RouteObject,
+} from "react-router-dom";
 import i18n from "../i18n";
+import { ContentFallback } from "../layout/ContentFallback";
+import type { AppRouter } from "../router";
 import { buildTheme } from "../theme";
+import { ColorModeProvider } from "../theme/ColorModeProvider";
 
 /**
  * Resolves an i18n key the way the component under test will resolve it.
@@ -103,4 +111,29 @@ export function renderWithProviders(
   }
 
   return render(ui, { wrapper: Providers, ...rest });
+}
+
+/**
+ * Renders a route tree — normally the application's own `routes` — through a
+ * data router held in memory, with the providers `App` supplies.
+ *
+ * `renderWithProviders` wraps its element in a `MemoryRouter`, which cannot
+ * host route objects, `lazy`, `errorElement` or `handle`; this is the harness
+ * for everything that depends on them. The router is returned, so a test can
+ * navigate or read its state.
+ */
+export function renderRoutes(
+  routes: RouteObject[],
+  options: { initialPath?: string; queryClient?: QueryClient } = {},
+): RenderResult & { router: AppRouter } {
+  const router = createMemoryRouter(routes, { initialEntries: [options.initialPath ?? "/"] });
+  const qc = options.queryClient ?? createTestQueryClient();
+  const result = render(
+    <ColorModeProvider>
+      <QueryClientProvider client={qc}>
+        <RouterProvider router={router} fallbackElement={<ContentFallback />} />
+      </QueryClientProvider>
+    </ColorModeProvider>,
+  );
+  return { ...result, router };
 }

@@ -4,6 +4,23 @@ import { defineConfig } from "vite";
 /** Where the BFF runs during development; `vite preview` reuses the same proxy. */
 const BFF = "http://localhost:8081";
 
+/**
+ * Third-party code in chunks of its own, so an application change does not
+ * invalidate the browser's cached copy of React or MUI, and no chunk crosses
+ * Vite's default 500 kB warning. `chunkSizeWarningLimit` is deliberately left
+ * at that default: a warning is how the bundle's growth becomes visible.
+ *
+ * The groups only ever import downwards — `mui` and `vendor` import `react`,
+ * nothing imports `mui` but the application — so no two chunks import each
+ * other. Stylesheets (the self-hosted fonts) stay with the entry chunk.
+ */
+function vendorChunk(id: string): string | undefined {
+  if (!id.includes("/node_modules/") || id.endsWith(".css")) return undefined;
+  if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id)) return "react";
+  if (/\/node_modules\/(@mui|@emotion|@popperjs|react-transition-group)\//.test(id)) return "mui";
+  return "vendor";
+}
+
 export default defineConfig({
   base: "/app/",
   plugins: [react()],
@@ -11,7 +28,9 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     assetsDir: "assets",
-    chunkSizeWarningLimit: 1024,
+    rollupOptions: {
+      output: { manualChunks: vendorChunk },
+    },
   },
   server: {
     proxy: {
@@ -29,6 +48,13 @@ export default defineConfig({
     // outside a Playwright runner. Component tests live under src/; the browser
     // suites belong to playwright.config.ts and run in a real browser.
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // Every test starts from pristine doubles: call history cleared, spies and
+    // `vi.fn()` implementations restored, stubbed globals put back. A mock's
+    // answer is therefore stated in the `beforeEach` or the test that relies on
+    // it, never once at module level for the whole file.
+    clearMocks: true,
+    restoreMocks: true,
+    unstubGlobals: true,
     coverage: {
       provider: "v8",
       reportsDirectory: "coverage",
@@ -63,10 +89,10 @@ export default defineConfig({
       // Thresholds are only evaluated when --coverage is passed, which is why
       // CI runs `npm run test:coverage` and not `npm test`.
       thresholds: {
-        statements: 98.53,
-        branches: 95.17,
-        functions: 93.47,
-        lines: 98.53,
+        statements: 99.07,
+        branches: 95.9,
+        functions: 94.73,
+        lines: 99.07,
       },
     },
   },

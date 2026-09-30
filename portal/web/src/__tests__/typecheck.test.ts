@@ -19,9 +19,14 @@ describe("the frontend gate", () => {
   it("typechecks before running the coverage suite", () => {
     const scripts = pkg.scripts as Record<string, string | undefined>;
 
-    expect(scripts["pretest:coverage"], "pretest:coverage must invoke the typechecker")
-      .toContain("typecheck");
-    expect(scripts.typecheck, "typecheck must be tsc --noEmit").toBe("tsc --noEmit");
+    expect(scripts["pretest:coverage"], "pretest:coverage must invoke the typechecker").toContain(
+      "typecheck",
+    );
+    // Both projects: the browser code, and the Playwright suites with their
+    // runner configuration, which no other step compiles.
+    expect(scripts.typecheck, "typecheck must compile both TypeScript projects").toBe(
+      "tsc --noEmit && tsc --noEmit -p tsconfig.e2e.json",
+    );
     // The generated contract types have to exist before `tsc` reads them, so the
     // order of the two halves of the pre-script is load-bearing.
     expect(scripts["pretest:coverage"]?.indexOf("generate:api")).toBeLessThan(

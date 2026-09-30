@@ -2,11 +2,7 @@ import { Alert, AlertTitle, Box, IconButton, Snackbar, Tooltip } from "@mui/mate
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  subscribeToErrors,
-  TRANSPORT_FAILURE,
-  type ReportedError,
-} from "../api/errorReporting";
+import { subscribeToErrors, TRANSPORT_FAILURE, type ReportedError } from "../api/errorReporting";
 import { UPSTREAM_UNAVAILABLE } from "../api/errors";
 
 /**
@@ -53,15 +49,19 @@ export function GlobalErrorSnackbar() {
 
   const summary = [
     current.code ? `${t("error.apiCode")}: ${current.code}` : null,
-    current.correlationId
-      ? `${t("error.apiCorrelationId")}: ${current.correlationId}`
-      : null,
+    current.correlationId ? `${t("error.apiCorrelationId")}: ${current.correlationId}` : null,
   ]
     .filter(Boolean)
     .join(" · ");
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(summary);
+    try {
+      await navigator.clipboard.writeText(summary);
+    } catch {
+      // No clipboard (an insecure origin) or the browser refused it. The
+      // summary is on screen to copy by hand, so there is nothing to report.
+      return;
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -92,7 +92,7 @@ export function GlobalErrorSnackbar() {
               <IconButton
                 size="small"
                 color="inherit"
-                onClick={handleCopy}
+                onClick={() => void handleCopy()}
                 aria-label={t("error.apiCopySummary")}
               >
                 <ContentCopyIcon fontSize="small" />

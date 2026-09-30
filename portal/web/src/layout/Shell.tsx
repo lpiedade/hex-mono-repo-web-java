@@ -1,5 +1,5 @@
-import { Box, CircularProgress } from "@mui/material";
-import { Suspense, useState } from "react";
+import { Box, LinearProgress } from "@mui/material";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Outlet } from "react-router-dom";
 import { visuallyHidden } from "../components/a11y";
@@ -11,25 +11,22 @@ import { APP_BAR_HEIGHT, TopBar } from "./TopBar";
 interface ShellProps {
   colorMode: "light" | "dark";
   onToggleColorMode: () => void;
-}
-
-/** Fallback while a lazily loaded content region arrives. */
-function ContentFallback() {
-  const { t } = useTranslation();
-  return (
-    <Box display="flex" justifyContent="center" mt={6} aria-live="polite">
-      <CircularProgress aria-label={t("app.contentLoading")} />
-    </Box>
-  );
+  /**
+   * A navigation is under way — typically a lazily loaded screen whose code is
+   * still arriving. The current page stays on screen meanwhile; the content
+   * region says it is busy and shows a progress bar along its top edge.
+   */
+  pending?: boolean;
 }
 
 /**
- * The application shell. The navigation and the top bar render first; the
- * content region loads behind a Suspense boundary. Semantic landmarks, a skip
- * link, a uniquely named navigation landmark, and keyboard-operable header
- * controls are the accessibility contract every page inherits (ADR-013).
+ * The application shell. Semantic landmarks, a skip link, a uniquely named
+ * navigation landmark, and keyboard-operable header controls are the
+ * accessibility contract every page inherits (ADR-013). The page itself is the
+ * matched route, rendered into the `<Outlet />`; a route that fails to render
+ * is replaced there by its error element, so the shell stays usable.
  */
-export function Shell({ colorMode, onToggleColorMode }: ShellProps) {
+export function Shell({ colorMode, onToggleColorMode, pending = false }: ShellProps) {
   const { t } = useTranslation();
   const [navOpen, setNavOpen] = useState(false);
   // The rail's width is read by the rail and by the bar beside it, so it is
@@ -97,7 +94,9 @@ export function Shell({ colorMode, onToggleColorMode }: ShellProps) {
           component="main"
           id="main-content"
           tabIndex={-1}
+          aria-busy={pending || undefined}
           sx={{
+            position: "relative",
             mt: `${APP_BAR_HEIGHT}px`,
             // `minWidth: 0` lets a flex child shrink below its content width,
             // which is what stops a wide table from widening the document.
@@ -106,9 +105,13 @@ export function Shell({ colorMode, onToggleColorMode }: ShellProps) {
             "&:focus": { outline: "none" },
           }}
         >
-          <Suspense fallback={<ContentFallback />}>
-            <Outlet />
-          </Suspense>
+          {pending ? (
+            <LinearProgress
+              aria-label={t("app.contentLoading")}
+              sx={{ position: "absolute", top: 0, left: 0, right: 0 }}
+            />
+          ) : null}
+          <Outlet />
         </Box>
       </Box>
     </Box>

@@ -45,7 +45,7 @@ export interface DataTableSort {
 /** Lists default to 25 rows per page; the ceiling is 100. */
 export const DEFAULT_PAGE_SIZE = 25;
 export const MAX_PAGE_SIZE = 100;
-export const DEFAULT_ROWS_PER_PAGE_OPTIONS: readonly number[] = [25, 50, 100];
+const DEFAULT_ROWS_PER_PAGE_OPTIONS: readonly number[] = [25, 50, 100];
 
 interface DataTableProps<Row> {
   columns: DataTableColumn<Row>[];
@@ -139,11 +139,7 @@ export function DataTable<Row>({
   const sortMessage = sort
     ? t("table.sortAnnouncement", {
         column: activeColumn?.header ?? sort.by,
-        direction: t(
-          sort.direction === "asc"
-            ? "table.sortedAscending"
-            : "table.sortedDescending",
-        ),
+        direction: t(sort.direction === "asc" ? "table.sortedAscending" : "table.sortedDescending"),
       })
     : "";
 
@@ -195,8 +191,7 @@ export function DataTable<Row>({
             <TableRow>
               {columns.map((col) => {
                 const active = sort?.by === col.id;
-                const direction: SortDirection =
-                  active && sort ? sort.direction : "asc";
+                const direction: SortDirection = active && sort ? sort.direction : "asc";
                 const canSort = Boolean(col.sortable && onSortChange);
                 return (
                   <TableCell
@@ -236,10 +231,7 @@ export function DataTable<Row>({
             {rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length}>
-                  <Typography
-                    color="text.secondary"
-                    sx={{ py: 2, textAlign: "center" }}
-                  >
+                  <Typography color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
                     {emptyMessage ?? t("table.empty")}
                   </Typography>
                 </TableCell>
@@ -264,10 +256,7 @@ export function DataTable<Row>({
         bound: its toolbar lays out wider than a 320px viewport and would widen
         the document even though the table above it does not.
       */}
-      {page != null &&
-      rowsPerPage != null &&
-      rowCount != null &&
-      onPageChange != null ? (
+      {page != null && rowsPerPage != null && rowCount != null && onPageChange != null ? (
         <TablePagination
           sx={{
             maxWidth: "100%",
@@ -282,10 +271,7 @@ export function DataTable<Row>({
           onPageChange={(_e, next) => onPageChange(next)}
           onRowsPerPageChange={
             onRowsPerPageChange
-              ? (e) =>
-                  onRowsPerPageChange(
-                    Math.min(parseInt(e.target.value, 10), maxPageSize),
-                  )
+              ? (e) => onRowsPerPageChange(Math.min(parseInt(e.target.value, 10), maxPageSize))
               : undefined
           }
           showFirstButton

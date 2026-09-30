@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { tAny, tAnyExact } from "./i18n";
+import { t, tAny, tAnyExact } from "./i18n";
 
 /**
  * Automated accessibility evidence for the portal (ADR-013, WCAG 2.2 AA).
@@ -13,11 +13,19 @@ import { tAny, tAnyExact } from "./i18n";
  * a manual screen-reader pass.
  */
 const ROUTES = [
-  { path: "", name: "home" },
-  { path: "items", name: "items" },
-  { path: "build", name: "build information" },
-  { path: "no-such-page", name: "not found" },
+  { path: "", name: "home", titleKey: "home.title" },
+  { path: "items", name: "items", titleKey: "items.title" },
+  { path: "build", name: "build information", titleKey: "about.title" },
+  { path: "no-such-page", name: "not found", titleKey: "notFound.title" },
 ];
+
+/**
+ * The document title a page carries, "<page> · <app>" (WCAG 2.4.2). A fresh
+ * browser context has no stored language, so the SPA is in the default locale.
+ */
+function documentTitle(pageKey: string): string {
+  return t("app.documentTitle", "en-US", { page: t(pageKey), app: t("app.name") });
+}
 
 /**
  * The ruleset is pinned to the WCAG 2.2 AA tags rather than left at axe's
@@ -51,8 +59,36 @@ for (const route of ROUTES) {
 
     const results = await audit(page).analyze();
     expect(summarize(results.violations), `axe violations on /${route.path}`).toEqual([]);
+    // axe checks only that a title exists; that it names the page is asserted.
+    await expect(page).toHaveTitle(documentTitle(route.titleKey));
   });
 }
+
+/**
+ * A screen whose code cannot be fetched — what a deployment that replaced the
+ * hashed chunks does to a tab left open — is replaced by the route's error
+ * page inside the shell. It is a state the sweep above never reaches, so it is
+ * audited on its own, in both themes.
+ */
+test("a screen whose code fails to load is replaced inside the shell, and meets AA", async ({
+  page,
+}) => {
+  await page.route(/\/assets\/About-[^/]+\.js$/, (route) => route.abort());
+
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await open(page, "build");
+
+    await expect(
+      page.getByRole("heading", { level: 1, name: tAnyExact("routeError.title") }),
+    ).toBeVisible();
+    await expect(page.getByRole("navigation", { name: tAny("nav.label") })).toBeVisible();
+    await expect(page.getByRole("button", { name: tAnyExact("routeError.reload") })).toBeVisible();
+    expect(summarize((await audit(page).analyze()).violations), `error page, ${scheme}`).toEqual(
+      [],
+    );
+  }
+});
 
 /**
  * Contrast is a property of the palette *and* of what a screen paints with it,
@@ -218,7 +254,9 @@ test("the skip link is the first tab stop and actually skips", async ({ page }) 
     };
   });
   expect(landing.inMain, `focus landed on ${landing.active}, not inside <main>`).toBe(true);
-  expect(landing.inNav, "focus stayed in the navigation the skip link exists to bypass").toBe(false);
+  expect(landing.inNav, "focus stayed in the navigation the skip link exists to bypass").toBe(
+    false,
+  );
 });
 
 test("every focus stop is visible while tabbing through the shell", async ({ page }) => {

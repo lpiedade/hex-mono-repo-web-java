@@ -114,12 +114,18 @@ export function ItemDialog({ item, onClose }: ItemDialogProps) {
               value={values.name}
               onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
               required
+              // The dialog opened to fill this form, so focus belongs on its
+              // first field; a modal must place focus inside itself anyway.
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- see above
               autoFocus
               fullWidth
               error={Boolean(nameError)}
               helperText={
                 nameError ??
-                t("items.form.counter", { length: lengthOf(values.name.trim()), max: NAME_MAX_LENGTH })
+                t("items.form.counter", {
+                  length: lengthOf(values.name.trim()),
+                  max: NAME_MAX_LENGTH,
+                })
               }
             />
             <TextField

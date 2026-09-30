@@ -42,7 +42,13 @@ export function ApiErrorBanner({ error, severity = "error" }: ApiErrorBannerProp
     .join(" · ");
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(summary);
+    try {
+      await navigator.clipboard.writeText(summary);
+    } catch {
+      // No clipboard (an insecure origin) or the browser refused it. The
+      // summary is on screen to copy by hand, so there is nothing to report.
+      return;
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -53,7 +59,11 @@ export function ApiErrorBanner({ error, severity = "error" }: ApiErrorBannerProp
       action={
         summary ? (
           <Tooltip title={copied ? t("error.apiCopied") : t("error.apiCopySummary")}>
-            <IconButton size="small" onClick={handleCopy} aria-label={t("error.apiCopySummary")}>
+            <IconButton
+              size="small"
+              onClick={() => void handleCopy()}
+              aria-label={t("error.apiCopySummary")}
+            >
               <ContentCopyIcon fontSize="small" />
             </IconButton>
           </Tooltip>

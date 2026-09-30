@@ -39,9 +39,7 @@ function resolve(locale: Locale, key: string, vars: Record<string, string>): str
     .split(".")
     .reduce<unknown>(
       (node, part) =>
-        node && typeof node === "object"
-          ? (node as Record<string, unknown>)[part]
-          : undefined,
+        node && typeof node === "object" ? (node as Record<string, unknown>)[part] : undefined,
       BUNDLES[locale],
     );
   if (typeof value !== "string") {
@@ -53,7 +51,11 @@ function resolve(locale: Locale, key: string, vars: Record<string, string>): str
 }
 
 /** One locale's rendering of `key`, with `{{name}}` placeholders filled from `vars`. */
-export function t(key: string, locale: Locale = "en-US", vars: Record<string, string> = {}): string {
+export function t(
+  key: string,
+  locale: Locale = "en-US",
+  vars: Record<string, string> = {},
+): string {
   return resolve(locale, key, vars);
 }
 
@@ -76,7 +78,7 @@ export function tAnyExact(key: string, vars: Record<string, string> = {}): RegEx
 }
 
 function alternatives(key: string, vars: Record<string, string>): string[] {
-  return LOCALES
-    .map((locale) => resolve(locale, key, vars).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .filter((value, index, all) => all.indexOf(value) === index);
+  return LOCALES.map((locale) =>
+    resolve(locale, key, vars).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+  ).filter((value, index, all) => all.indexOf(value) === index);
 }

@@ -46,9 +46,7 @@ describe("Nav", () => {
     );
     // Home is `/`, a prefix of every path: it must match exactly or it would
     // be marked current everywhere.
-    expect(screen.getByRole("link", { name: t("nav.home") })).not.toHaveAttribute(
-      "aria-current",
-    );
+    expect(screen.getByRole("link", { name: t("nav.home") })).not.toHaveAttribute("aria-current");
   });
 
   it("shows the product name beside the mark", () => {
@@ -162,8 +160,12 @@ describe("Nav", () => {
       setTestViewportWidth(320);
       renderWithProviders(<Nav mobileOpen collapsed onToggleCollapsed={() => undefined} />);
 
-      expect(screen.queryByRole("button", { name: tRe("nav.collapse", chord) })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: tRe("nav.expand", chord) })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: tRe("nav.collapse", chord) }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: tRe("nav.expand", chord) }),
+      ).not.toBeInTheDocument();
       // And the destinations keep their labels: the drawer is never icons-only.
       expect(screen.getByText(t("nav.items"))).toBeInTheDocument();
     });
@@ -173,9 +175,7 @@ describe("Nav", () => {
       // not the transition.
       const onMobileClose = vi.fn();
       setTestViewportWidth(320);
-      const { rerender } = renderWithProviders(
-        <Nav mobileOpen onMobileClose={onMobileClose} />,
-      );
+      const { rerender } = renderWithProviders(<Nav mobileOpen onMobileClose={onMobileClose} />);
       expect(onMobileClose).not.toHaveBeenCalled();
 
       setTestViewportWidth(1280);

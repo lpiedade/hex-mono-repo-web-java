@@ -28,7 +28,8 @@ exists. Both live in `web/src/api/auth.ts`; a new call made outside
 
 The BFF owns `bff`, `about` and `health` under `/app`. No SPA route may start
 with one of those segments — a reload would get the BFF's JSON instead of the
-page. `apiContract.test.ts` checks the navigation against the contract.
+page. `apiContract.test.ts` walks the whole route tree in `web/src/router.tsx`,
+and the navigation, and checks every first segment against the contract.
 
 ## Contracts and remote state
 
@@ -60,6 +61,14 @@ net in `web/src/api/errorReporting.ts` — never neither.
   "portal unreachable" message; the BFF's `503 UPSTREAM_UNAVAILABLE` shows
   "service unavailable, try again".
 
+A **render** failure — a screen that throws, or whose lazily loaded code does
+not arrive — is caught by its route's `errorElement` and replaced, inside the
+shell, by `RouteError`: one localized message, a reload and the way home, never
+the error itself. What the shell itself throws is caught by the root route's
+`RootError`. So every route in `router.tsx` declares an `errorElement`;
+`router.test.tsx` fails on one that does not. The global snackbar sits beside
+the router and keeps reporting while an error page is on screen.
+
 ## Accessibility is WCAG 2.2 AA (ADR-013)
 
 The theme's color pairs are asserted in both modes by
@@ -67,6 +76,11 @@ The theme's color pairs are asserted in both modes by
 over every route in both themes, at 320px, and under reduced motion. A new
 route goes into `e2e/portal.a11y.spec.ts`'s `ROUTES`; a state the sweep cannot
 reach without data (an open dialog, an inline error) gets a test of its own.
+
+Every route declares `handle: { titleKey }`, and the document title becomes
+`<page> · <app>` in the active locale (`app.documentTitle`), following each
+navigation and each language change (WCAG 2.4.2). `index.html`'s `<title>` is
+only the pre-boot default, kept equal to the `en-US` `app.name`.
 
 Composed primitives carry the semantics so screens do not have to: one `h1`
 per page through `PageHeader`, named regions through `SectionCard`, captioned
@@ -155,15 +169,32 @@ never sorts; it renders the order it is given and reports the clicked column.
 
 - BFF: `mvn clean verify` at the repository root.
 - SPA: the frontend is a standalone npm project, not driven by Maven. From
-  `portal/web/`, run `npm ci && npm run test:coverage && npm run build` before
-  committing, and `npm run test:a11y` when a screen changes.
+  `portal/web/`, run
+  `npm ci && npm run lint && npm run format:check && npm run test:coverage && npm run build`
+  before committing, and `npm run test:a11y` when a screen changes.
+
+**Lint and format are gates.** `npm run lint` is ESLint with type information
+(typescript-eslint, react-hooks, react-refresh, jsx-a11y) and fails on a
+warning as on an error; `npm run format:check` is Prettier. `npm run format`
+writes the formatting. A rule is disabled only inline, for one line, with the
+reason after `--` — never file-wide to make a finding go away.
 
 **`test:coverage`, not `test`.** Both run the same suite, but Vitest evaluates
 the coverage floor in `vite.config.ts` only when `--coverage` is passed, and
-`pretest:coverage` is what runs the typechecker. The floor is a ratchet — the
-last recorded measurement, truncated, and no higher (ADR-019) —
+`pretest:coverage` is what runs the typechecker — both projects,
+`tsconfig.json` for the browser code and `tsconfig.e2e.json` for the Playwright
+suites. The floor is a ratchet — the last recorded measurement, truncated, and
+no higher (ADR-019) —
 and [`docs/performance/coverage-ratchet.md`](../docs/performance/coverage-ratchet.md)
 is how to move it.
+
+**A clean run.** A component test fails on any `console.error` or
+`console.warn` it did not declare (`web/src/test-setup.ts`), because that is
+where React, MUI and the portal report defects. A test that is about such
+output calls `expectConsole("error" | "warn")` and asserts on the spy it
+returns; React's "not wrapped in act(...)" warning fails a test regardless.
+Mocks are restored before every test, so a mock's answer is set in the
+`beforeEach` or the test that relies on it.
 
 **Browser suites.** `a11y` needs only the production build (`vite preview`).
 `journey` drives a real stack and **fails** when `E2E_BASE_URL` is unset

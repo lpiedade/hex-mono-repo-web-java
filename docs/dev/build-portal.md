@@ -10,7 +10,8 @@ BFF is built by Maven and the SPA by npm; neither calls the other.
 |------|---------|--------------|
 | Build the BFF | `mvn clean verify -pl portal -am` | repo root |
 | Build the SPA | `npm run build` | `portal/web/` |
-| Test and build the SPA (the CI gate) | `npm ci && npm run test:coverage && npm run build` | `portal/web/` |
+| Lint, test and build the SPA (the CI gate) | `npm ci && npm run lint && npm run format:check && npm run test:coverage && npm run build` | `portal/web/` |
+| Format the SPA's sources | `npm run format` | `portal/web/` |
 | Run the full local stack | `infra/scripts/run-local.sh` | repo root |
 | Run the SPA dev server | `npm run dev` | `portal/web/` |
 | Run the API and BFF in containers | `docker compose --profile app up -d --build` | repo root |
@@ -56,8 +57,8 @@ The SPA is a standalone npm project in `portal/web/`. `mvn clean verify` does
 not produce the frontend bundle.
 
 The `generate:api` hook regenerates the TypeScript client from the portal
-OpenAPI contract before every build and test run (ADR-012). The generated file
-(`src/api/portal-api.d.ts`) is git-ignored.
+OpenAPI contract before every build, test, typecheck and lint run (ADR-012).
+The generated file (`src/api/portal-api.d.ts`) is git-ignored.
 
 ### Fast local feedback
 
@@ -70,19 +71,28 @@ The dev server serves the SPA under `/app/` and proxies `/app/bff/**`,
 `/app/health` and `/app/about` to `localhost:8081`, so the browser still sees a
 single origin and no CORS policy is involved (`portal/web/vite.config.ts`).
 
-### Full build (typecheck, coverage gate, production bundle)
+### Full build (lint, format, typecheck, coverage gate, production bundle)
 
 This is what CI runs and what the coverage ratchet checks:
 
 ```
 cd portal/web
 npm ci
-npm run test:coverage   # Vitest with --coverage; fails below the floor
+npm run lint            # ESLint, type-aware; a warning fails as an error does
+npm run format:check    # Prettier; `npm run format` writes the fixes
+npm run test:coverage   # typecheck (browser + e2e projects), then Vitest with --coverage
 npm run build           # tsc --noEmit + vite build -> dist/
 ```
 
+A component test fails on any `console.error` or `console.warn` it did not
+declare with `expectConsole()` (`src/test-setup.ts`), so a clean run is part of
+the gate, not a nicety.
+
 The production bundle lands in `portal/web/dist/`: plain static assets, with no
-server of its own (ADR-017). `npx vite preview` serves it on :4173 with the same
+server of its own (ADR-017). Screens beyond the landing page are split into
+chunks of their own and loaded on demand, and third-party code is grouped into
+`react`, `mui` and `vendor` chunks; the build keeps Vite's default 500 kB
+chunk-size warning, so a chunk that outgrows it shows up in the build output. `npx vite preview` serves it on :4173 with the same
 proxy as the dev server, which is what the accessibility and journey suites
 load, and `infra/scripts/build-and-push.sh` uploads it to the S3 bucket
 CloudFront serves (ADR-025).

@@ -64,7 +64,9 @@ export function toRequest(values: ItemFormValues): ItemRequest {
  * The server's field errors that name a field of this form, keyed by field.
  * Anything else stays in the banner, which shows the whole problem anyway.
  */
-export function serverFieldErrors(errors: readonly FieldError[]): Partial<Record<ItemField, string>> {
+export function serverFieldErrors(
+  errors: readonly FieldError[],
+): Partial<Record<ItemField, string>> {
   const byField: Partial<Record<ItemField, string>> = {};
   for (const error of errors) {
     if (error.field === "name" || error.field === "description") {

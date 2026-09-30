@@ -31,12 +31,7 @@ export function SectionCard({
 }: SectionCardProps) {
   const headingId = useId();
   return (
-    <Paper
-      component="section"
-      variant="outlined"
-      aria-labelledby={headingId}
-      sx={{ p: 3 }}
-    >
+    <Paper component="section" variant="outlined" aria-labelledby={headingId} sx={{ p: 3 }}>
       <Stack
         direction="row"
         justifyContent="space-between"
