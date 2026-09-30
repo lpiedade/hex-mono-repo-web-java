@@ -23,20 +23,33 @@ BFF's code `SESSION_REQUIRED` navigates to `/app/bff/oauth2/authorization/oidc`
 (the API's own `UNAUTHENTICATED` does not — logging in again would not fix a
 refused relayed token, and redirecting on it would loop), and every
 mutating request carries `X-XSRF-TOKEN` from the `XSRF-TOKEN` cookie when one
-exists. Both live in `web/src/api/auth.ts`; a new call made outside
-`api/client.ts` would bypass them, so do not make one.
+exists. Both live in `web/src/shared/api/auth.ts`; a new call made outside
+`shared/api/client.ts` would bypass them, so do not make one.
 
 The BFF owns `bff`, `about` and `health` under `/app`. No SPA route may start
 with one of those segments — a reload would get the BFF's JSON instead of the
-page. `apiContract.test.ts` walks the whole route tree in `web/src/router.tsx`,
+page. `apiContract.test.ts` walks the whole route tree in `web/src/app/router/router.tsx`,
 and the navigation, and checks every first segment against the contract.
+
+## The SPA is Feature-Sliced (ADR-027)
+
+`web/src` has six layers, top to bottom: `app`, `pages`, `widgets`,
+`features`, `entities`, `shared`. A layer imports only the layers below it; two
+slices of one layer never import each other; a slice or a `shared` segment is
+imported only through its `index.ts`, with the `@/` alias. `npm run lint`
+enforces it (`eslint-plugin-boundaries`), and
+`web/src/app/__tests__/guards/boundaries.test.ts` fails if the rules stop
+firing against planted violations. Where a new piece of code goes, the naming,
+and where its suite lives are in [`web/README.md`](web/README.md); the
+template's aggregate `items` is `entities/item`, the `edit-item` and
+`delete-item` features, and `pages/items` — replace it in that one move.
 
 ## Contracts and remote state
 
 The SPA's types are generated from
 [`portal-api-v1.yaml`](../docs/arch/api-layer/portal-api-v1.yaml) by
 `npm run generate:api`, and every call goes through the typed client in
-`web/src/api/client.ts` (ADR-012). `apiContract.test.ts` fails when the client
+`web/src/shared/api/client.ts` (ADR-012). `apiContract.test.ts` fails when the client
 calls a route the contract does not declare; `tsc` fails when a screen reads a
 field the contract no longer has. Change the contract first, regenerate, then
 follow the compiler.
@@ -48,7 +61,7 @@ has a measured reason to.
 ### No failure is silent
 
 A request failure is either rendered by the screen or reported by the global
-net in `web/src/api/errorReporting.ts` — never neither.
+net in `web/src/shared/api/errorReporting.ts` — never neither.
 
 - A **query** failure is the screen's to render, as its page state
   (`pageStateOf`) and usually an `ApiErrorBanner`. The net only logs it.
@@ -72,7 +85,7 @@ the router and keeps reporting while an error page is on screen.
 ## Accessibility is WCAG 2.2 AA (ADR-013)
 
 The theme's color pairs are asserted in both modes by
-`web/src/__tests__/theme.test.ts`, and the `a11y` Playwright project runs axe
+`web/src/shared/theme/__tests__/buildTheme.test.ts`, and the `a11y` Playwright project runs axe
 over every route in both themes, at 320px, and under reduced motion. A new
 route goes into `e2e/portal.a11y.spec.ts`'s `ROUTES`; a state the sweep cannot
 reach without data (an open dialog, an inline error) gets a test of its own.
@@ -100,7 +113,7 @@ Only user-facing strings are exempt — and those are never hardcoded.
 
 Any text a user can read goes through i18n (`react-i18next`); it never appears
 as a string literal in a component. Bundles live in
-`web/src/locales/<locale>.json`, and every key must exist in each:
+`web/src/shared/i18n/locales/<locale>.json`, and every key must exist in each:
 
 - `en-US` — English (the default)
 - `pt-BR` — Portuguese (Brazil)
@@ -108,11 +121,12 @@ as a string literal in a component. Bundles live in
 Add a key to every bundle in the same change; `locales.test.ts` fails
 otherwise. Keys and route segments are identifiers, not copy: keep them stable
 and never translate them per locale. A missing key is logged in development
-(`reportMissingKey` in `i18n.ts`) and renders as its own name.
+(`reportMissingKey` in `shared/i18n/i18n.ts`) and renders as its own name.
 
 To add a locale: a new bundle, an entry in `SUPPORTED_LOCALES` and in
-`resources` (`i18n.ts`), its autonym in `LanguageSelector`, and the locale in
-`e2e/i18n.ts` and in the two bundle-scanning tests.
+`BUNDLES` (`shared/i18n/i18n.ts`), its autonym in `LanguageSelector`, and the
+locale in `e2e/i18n.ts`. The bundle-scanning guards read `BUNDLES`, and
+`locales.test.ts` fails on a bundle file nobody registered.
 
 ### The `en-US` bundle is American English
 
@@ -125,7 +139,7 @@ wire's (`identity.role.ADMIN`), with only its label translated.
 
 A test may not quote product copy. It names the key and lets i18next resolve
 it — `t` / `tRe` / `tReExact` / `tPattern` from
-[`web/src/__tests__/test-utils.tsx`](web/src/__tests__/test-utils.tsx) in the
+[`web/src/shared/testing`](web/src/shared/testing/translation.ts) in the
 component suite, `t` / `tAny` / `tAnyExact` from [`web/e2e/i18n.ts`](web/e2e/i18n.ts)
 in the Playwright suites.
 
@@ -139,7 +153,7 @@ expect(screen.getByRole("link", { name: t("nav.items") })).toBeInTheDocument();
 Otherwise a bundle edit becomes a source edit: rewording a label turns into a
 red suite in files the change never touched, and the whole suite is pinned to
 `DEFAULT_LOCALE`. It is enforced by
-[`testsAssertKeys.test.ts`](web/src/__tests__/testsAssertKeys.test.ts), which
+[`testsAssertKeys.test.ts`](web/src/app/__tests__/guards/testsAssertKeys.test.ts), which
 scans both suites and names the key to use in its failure. Its blind spots are
 written down in that file; a **fragment** (`/iten/i`) is the same coupling with
 a smaller quote and is the reviewer's to refuse.
@@ -156,7 +170,7 @@ a smaller quote and is the reviewer's to refuse.
 
 A screen that fetched its collection **whole** — no `limit`, no cursor, no
 `page`/`rowCount`/`onPageChange` on `DataTable` — sorts it in memory through
-[`useClientSort`](web/src/components/useClientSort.ts) and issues no request.
+[`useClientSort`](web/src/shared/ui/useClientSort.ts) and issues no request.
 A screen that **pages through the backend** sends the sort with its next
 request and never reorders the rows it holds. `ItemsPage` is the worked example
 of the first kind.
@@ -174,22 +188,22 @@ never sorts; it renders the order it is given and reports the clicked column.
   before committing, and `npm run test:a11y` when a screen changes.
 
 **Lint and format are gates.** `npm run lint` is ESLint with type information
-(typescript-eslint, react-hooks, react-refresh, jsx-a11y) and fails on a
-warning as on an error; `npm run format:check` is Prettier. `npm run format`
+(typescript-eslint, react-hooks, react-refresh, jsx-a11y, and the layering
+rules of eslint-plugin-boundaries) and fails on a warning as on an error; `npm run format:check` is Prettier. `npm run format`
 writes the formatting. A rule is disabled only inline, for one line, with the
 reason after `--` — never file-wide to make a finding go away.
 
 **`test:coverage`, not `test`.** Both run the same suite, but Vitest evaluates
 the coverage floor in `vite.config.ts` only when `--coverage` is passed, and
 `pretest:coverage` is what runs the typechecker — both projects,
-`tsconfig.json` for the browser code and `tsconfig.e2e.json` for the Playwright
-suites. The floor is a ratchet — the last recorded measurement, truncated, and
+`tsconfig.json` for the browser code and `tsconfig.node.json` for the Node side
+(the Playwright suites, their config, the Vite config). The floor is a ratchet — the last recorded measurement, truncated, and
 no higher (ADR-019) —
 and [`docs/performance/coverage-ratchet.md`](../docs/performance/coverage-ratchet.md)
 is how to move it.
 
 **A clean run.** A component test fails on any `console.error` or
-`console.warn` it did not declare (`web/src/test-setup.ts`), because that is
+`console.warn` it did not declare (`web/src/shared/testing/setup.ts`), because that is
 where React, MUI and the portal report defects. A test that is about such
 output calls `expectConsole("error" | "warn")` and asserts on the spy it
 returns; React's "not wrapped in act(...)" warning fails a test regardless.

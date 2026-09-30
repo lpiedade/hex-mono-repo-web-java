@@ -58,7 +58,7 @@ not produce the frontend bundle.
 
 The `generate:api` hook regenerates the TypeScript client from the portal
 OpenAPI contract before every build, test, typecheck and lint run (ADR-012).
-The generated file (`src/api/portal-api.d.ts`) is git-ignored.
+The generated file (`src/shared/api/generated/portal-api.d.ts`) is git-ignored.
 
 ### Fast local feedback
 
@@ -78,14 +78,14 @@ This is what CI runs and what the coverage ratchet checks:
 ```
 cd portal/web
 npm ci
-npm run lint            # ESLint, type-aware; a warning fails as an error does
+npm run lint            # ESLint, type-aware, with the FSD layering rules (ADR-027)
 npm run format:check    # Prettier; `npm run format` writes the fixes
-npm run test:coverage   # typecheck (browser + e2e projects), then Vitest with --coverage
+npm run test:coverage   # typecheck (browser + Node projects), then Vitest with --coverage
 npm run build           # tsc --noEmit + vite build -> dist/
 ```
 
 A component test fails on any `console.error` or `console.warn` it did not
-declare with `expectConsole()` (`src/test-setup.ts`), so a clean run is part of
+declare with `expectConsole()` (`src/shared/testing/setup.ts`), so a clean run is part of
 the gate, not a nicety.
 
 The production bundle lands in `portal/web/dist/`: plain static assets, with no

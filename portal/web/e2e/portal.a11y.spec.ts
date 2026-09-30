@@ -73,7 +73,8 @@ for (const route of ROUTES) {
 test("a screen whose code fails to load is replaced inside the shell, and meets AA", async ({
   page,
 }) => {
-  await page.route(/\/assets\/About-[^/]+\.js$/, (route) => route.abort());
+  // Page chunks are named after their slice (vite.config.ts, chunkFileName).
+  await page.route(/\/assets\/page-build-[^/]+\.js$/, (route) => route.abort());
 
   for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme });

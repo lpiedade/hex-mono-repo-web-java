@@ -3,7 +3,7 @@
  * key, not the translation** (portal/CLAUDE.md) on the same terms as the
  * component suite.
  *
- * It reads the bundles off disk rather than going through `src/i18n.ts`: that
+ * It reads the bundles off disk rather than going through `src/shared/i18n`: that
  * module initialises i18next against `import.meta.env`, which belongs to Vite
  * and not to the Playwright runner, and a browser suite has no need of a live
  * instance — it needs the string the browser will be showing. `readFileSync`
@@ -25,7 +25,7 @@ const LOCALES = ["en-US", "pt-BR"] as const;
 
 export type Locale = (typeof LOCALES)[number];
 
-const LOCALES_DIR = join(dirname(fileURLToPath(import.meta.url)), "../src/locales");
+const LOCALES_DIR = join(dirname(fileURLToPath(import.meta.url)), "../src/shared/i18n/locales");
 
 const BUNDLES = Object.fromEntries(
   LOCALES.map((locale) => [

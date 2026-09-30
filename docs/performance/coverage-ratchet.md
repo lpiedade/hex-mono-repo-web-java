@@ -55,10 +55,10 @@ their coverage moves with the contract, not the product.
 
 | Counter | Floor | Measured at |
 | --- | ---: | --- |
-| Statements | `99.07` | 2026-09-30, on `9496d0a` + the data-router change (2143/2163) |
-| Branches | `95.90` | 2026-09-30, on `9496d0a` + the data-router change (515/537) |
-| Functions | `94.73` | 2026-09-30, on `9496d0a` + the data-router change (144/152) |
-| Lines | `99.07` | 2026-09-30, on `9496d0a` + the data-router change (2143/2163) |
+| Statements | `99.09` | 2026-09-30, on `9300c1b` + the Feature-Sliced Design move (2193/2213) |
+| Branches | `96.05` | 2026-09-30, on `9300c1b` + the Feature-Sliced Design move (536/558) |
+| Functions | `95.12` | 2026-09-30, on `9300c1b` + the Feature-Sliced Design move (156/164) |
+| Lines | `99.09` | 2026-09-30, on `9300c1b` + the Feature-Sliced Design move (2193/2213) |
 
 Vitest thresholds are percentages (`0`–`100`); the table uses the same unit as
 the config file.
@@ -128,3 +128,6 @@ difference is visible in review, which is why the procedure is a committed diff.
 | 2026-09-30 | on `9496d0a` | `portal/web` statements / lines | `98.53` | `99.07` | Raised: route tree, error pages, document title and color-mode provider landed with their suites |
 | 2026-09-30 | on `9496d0a` | `portal/web` branches | `95.17` | `95.90` | Raised, same change |
 | 2026-09-30 | on `9496d0a` | `portal/web` functions | `93.47` | `94.73` | Raised, same change |
+| 2026-09-30 | on `9300c1b` | `portal/web` statements / lines | `99.07` | `99.09` | Raised: the Feature-Sliced Design move (ADR-027) split the grouped suites per module and added suites for the new slices |
+| 2026-09-30 | on `9300c1b` | `portal/web` branches | `95.90` | `96.05` | Raised, same change |
+| 2026-09-30 | on `9300c1b` | `portal/web` functions | `94.73` | `95.12` | Raised, same change |

@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: Template baseline
-- Related: [ADR-002](ADR-002-layered-core-and-apps-boundary.md), [ADR-007](ADR-007-spring-boot-http-api-composition-root.md), [ADR-009](ADR-009-react-typescript-and-spring-bff.md), [ADR-022](ADR-022-contract-versions-allocated-at-delivery.md), [ADR-024](ADR-024-sorting-follows-the-collection.md), [ADR-026](ADR-026-cli-is-a-client-of-the-api.md)
+- Related: [ADR-002](ADR-002-layered-core-and-apps-boundary.md), [ADR-007](ADR-007-spring-boot-http-api-composition-root.md), [ADR-009](ADR-009-react-typescript-and-spring-bff.md), [ADR-022](ADR-022-contract-versions-allocated-at-delivery.md), [ADR-024](ADR-024-sorting-follows-the-collection.md), [ADR-026](ADR-026-cli-is-a-client-of-the-api.md), [ADR-027](ADR-027-feature-sliced-design-for-the-spa.md)
 
 ## Context
 

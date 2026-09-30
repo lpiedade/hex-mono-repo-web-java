@@ -34,9 +34,9 @@ mistaken for a description of the code as it is.
 - A file that exports a component exports only components and types. Helpers,
   constants and factories go in a sibling `.ts` module — otherwise Fast Refresh
   reloads the whole module on every edit. `react-refresh/only-export-components`
-  enforces it (`pageState.ts` beside `PageHeader`, `buildInfo.ts` beside
-  `About`, `queryClient.ts` beside `App`).
-- Screens compose the primitives in `src/components/` instead of rebuilding
+  enforces it (`pageState.ts` in `shared/lib`, `buildInfo.ts` in
+  `pages/build/lib`, `queryClient.ts` in `app/providers`).
+- Screens compose the primitives in `src/shared/ui/` instead of rebuilding
   them from raw MUI: `PageHeader` (the page's one `h1` and its page state),
   `SectionCard` (a named region), `DataTable` with `useClientSort`, `Banner` and
   `ApiErrorBanner`, `ConfirmDialog`, `KeyValueList`, `FooterNote`.
@@ -85,14 +85,14 @@ mistaken for a description of the code as it is.
   named object once it returns more than two values.
 - A hook that is part of a primitive's contract lives beside the primitive
   (`useClientSort` beside `DataTable`, ADR-024). A hook shared across features
-  goes in `src/hooks/`; a hook one feature uses stays in that feature.
+  goes in `src/shared/lib/`; a hook one slice uses stays in that slice.
 - A callback a hook returns, and that callers may put in an effect's
   dependencies, is stable (`useCallback`).
 
 **SHOULD**
 
 - Extract a hook the second time the same stateful logic appears.
-  `src/hooks/useDocumentTitle.ts` is the first shared one. Candidates in the
+  `src/shared/lib/useDocumentTitle.ts` is the first shared one. Candidates in the
   tree today: `useCopyToClipboard` (duplicated in `ApiErrorBanner` and
   `GlobalErrorSnackbar`), `useDateTimeFormat` (a memoized `Intl.DateTimeFormat`
   for `i18n.language`).
@@ -100,36 +100,35 @@ mistaken for a description of the code as it is.
 ## 3. Remote state
 
 `portal/CLAUDE.md` fixes the frame: every call goes through
-`src/api/client.ts`, remote state is React Query's, a write invalidates what it
+`src/shared/api/client.ts`, remote state is React Query's, a write invalidates what it
 affects, nothing is written into the cache by hand, and no failure is silent.
 Within that frame:
 
 **MUST**
 
-- A typed call in `src/api/client.ts` destructures `{ data, error, response }`,
+- A typed call in `src/shared/api/client.ts` destructures `{ data, error, response }`,
   throws `toApiError(response.status, error)` on failure, and returns the
   narrowed `data`. It re-exports the schema types a screen needs
-  (`export type Item = components["schemas"]["Item"]`); nobody writes a wire
-  type by hand.
+  (`export type Item = components["schemas"]["Item"]`), and `shared/api/index.ts`
+  exports them; nobody writes a wire type by hand.
 - A call used as a query accepts the `AbortSignal` React Query passes and
   forwards it to `openapi-fetch`, so a superseded or unmounted query cancels its
   request (ADR-012 counts cancellation among the reasons for the library).
   **(adopt)**
-- Query keys come from one factory per feature, paired with their `queryFn`
-  through `queryOptions()`, so that a screen, a prefetch and an invalidation
-  cannot name different keys. No inline key literals in components. **(adopt)**
+- Query keys come from one factory per entity — or per page, while only that
+  page reads them — paired with their `queryFn` through `queryOptions()`, so
+  that a screen, a prefetch and an invalidation cannot name different keys. No
+  inline key literals in components.
 
   ```ts
-  // features/items/api/queries.ts
+  // entities/item/api/itemQueries.ts
   export const itemKeys = {
     all: ["items"] as const,
     list: () => [...itemKeys.all, "list"] as const,
-    detail: (id: string) => [...itemKeys.all, "detail", id] as const,
   };
 
   export const itemQueries = {
-    list: () =>
-      queryOptions({ queryKey: itemKeys.list(), queryFn: ({ signal }) => listItems({ signal }) }),
+    list: () => queryOptions({ queryKey: itemKeys.list(), queryFn: listItems }),
   };
   ```
 
@@ -137,7 +136,7 @@ Within that frame:
   as the **first property** of its `useMutation({` call —
   `errorReportingInventory.test.ts` recognizes exactly that shape. Every other
   mutation is listed in that suite's `CARRIED_BY_THE_NET`, with its reason.
-- `onSuccess` awaits `invalidateQueries` on the feature's root key before it
+- `onSuccess` awaits `invalidateQueries` on the entity's root key (`itemKeys.all`) before it
   closes whatever started the mutation, so the dialog stays pending until the
   re-read lands.
 - Every query's states are rendered: loading, failure (`pageStateOf` plus
@@ -160,11 +159,10 @@ Within that frame:
   - a `retry` predicate that does not retry a 4xx `ApiError` — a `403` or a
     `404` will not change a second later.
   - a global `staleTime`; a query overrides it only with a measured reason.
-- Keep `useQuery` / `useMutation` in the component that renders the result, and
-  take their options from the feature's factories:
-  `useQuery(itemQueries.list())`,
-  `useMutation({ meta: REPORTED_INLINE, ...itemMutations.save(queryClient, item) })`.
-  Wrap the pair in a custom hook only when several components need it.
+- Keep `useQuery` / `useMutation` in the component that renders the result:
+  `useQuery(itemQueries.list())` in the page, the `useMutation` in the
+  feature's dialog. Wrap the pair in a custom hook only when several components
+  need it.
 - Do not use `useSuspenseQuery`. Screens render loading and failure through the
   page-state model; a thrown promise would add a second loading UI and move
   errors to a boundary the screen does not control.
@@ -181,7 +179,7 @@ Within that frame:
 - Each form has a pure module, `<entity>Form.ts`, with no React in it:
   `valuesOf(entity)`, `validate(values)` returning an i18n key per invalid
   field, `toRequest(values)`, and `serverFieldErrors(fieldErrors)`. It is unit
-  tested on its own. `pages/items/itemForm.ts` is the model.
+  tested on its own. `entities/item/model/itemForm.ts` is the model.
 - Inputs are controlled; the form is `<form noValidate onSubmit>` and submits
   through a `type="submit"` button.
 - Validate on submit, then live. A failed submit moves focus to the first
@@ -211,7 +209,7 @@ Within that frame:
 
 **MUST**
 
-- Routes are route objects in `src/router.tsx`, served by the data router
+- Routes are route objects in `src/app/router/router.tsx`, served by the data router
   (`createBrowserRouter` under the `/app` basename, `RouterProvider` in `App`).
   Route objects are data, which is what lets `apiContract.test.ts` walk every
   path and `router.test.tsx` check every page's declarations.
@@ -334,7 +332,7 @@ how the axe sweep is extended. On top of it:
 
 ## 9. Styling
 
-MUI 5 under the application theme in `src/theme/` (ADR-013).
+MUI 5 under the application theme in `src/shared/theme/` (ADR-013).
 
 **MUST**
 
@@ -354,7 +352,7 @@ MUI 5 under the application theme in `src/theme/` (ADR-013).
 - Styling goes in `sx`, not in system props on `Box` or `Stack` (`mt`,
   `display`, `gap`, `justifyContent`) — MUI 6 deprecates those.
 - Icons are imported by path (`@mui/icons-material/Add`).
-- A new token pair is asserted in `src/__tests__/theme.test.ts`.
+- A new token pair is asserted in `src/shared/theme/__tests__/buildTheme.test.ts`.
 
 **SHOULD**
 
@@ -368,12 +366,12 @@ MUI 5 under the application theme in `src/theme/` (ADR-013).
 **MUST**
 
 - `strict` stays on, in both projects: `tsconfig.json` for the browser code and
-  `tsconfig.e2e.json` (with `@types/node`) for `e2e/` and
-  `playwright.config.ts`. `npm run typecheck` compiles both.
+  `tsconfig.node.json` (with `@types/node`) for `e2e/`, `playwright.config.ts`
+  and `vite.config.ts`. `npm run typecheck` compiles both.
 - No `any`: `unknown` plus narrowing at a trust boundary (`toApiError`). A cast
   only at a boundary, with a comment saying why.
-- Wire types come from `portal-api.d.ts` through the aliases `api/client.ts`
-  re-exports. The generated file is never edited.
+- Wire types come from `shared/api/generated/portal-api.d.ts` through the
+  aliases `@/shared/api` re-exports. The generated file is never edited.
 - Variants are discriminated unions, checked exhaustively (`never` in the
   default branch). Constant maps use `satisfies`; literal tuples `as const`.
 
@@ -402,15 +400,15 @@ suites, and the rule that a test asserts the key. On top of it:
   from outside React (a report from the error net, a language switch) is
   flushed with `act` — awaited when it is asynchronous — before anything is
   asserted; global state is reset only after `cleanup()` has unmounted the tree.
-- Render through `renderWithProviders` from `test-utils`, or through
+- Render through `renderWithProviders` from `@/shared/testing`, or through
   `renderRoutes` when the test needs the data router (`lazy`, `errorElement`,
   `handle`). A test about both themes builds its own `ThemeProvider`.
-- Screen suites mock `api/client` at the module boundary with typed
+- Screen suites mock `@/shared/api/client` at the module boundary with typed
   `vi.mocked`, and state each function's answer in the `beforeEach` or the test
   that relies on it — mocks are restored before every test (`clearMocks`,
   `restoreMocks`, `unstubGlobals` in the Vitest config), so an answer set once
   at module level does not survive the first test.
-- The run is clean. `test-setup.ts` fails a test on any `console.error` or
+- The run is clean. `shared/testing/setup.ts` fails a test on any `console.error` or
   `console.warn` it did not declare; a test about such output calls
   `expectConsole("error" | "warn")` and asserts on the spy it returns. React's
   "not wrapped in act(...)" warning fails a test even when it declared errors.
@@ -472,131 +470,45 @@ Where suites live is part of the folder structure below.
 
 ## 13. Folder structure
 
-### Today
+The source is organized by **Feature-Sliced Design**
+([ADR-027](../adr/ADR-027-feature-sliced-design-for-the-spa.md)). The tree, the
+role of every layer and slice, the placement guide and the naming table are in
+[`portal/web/README.md`](../../portal/web/README.md#the-folder-structure); this
+section states the rules and why they hold.
 
-```
-portal/web/
-  e2e/                  Playwright: *.a11y.spec.ts, *.journey.spec.ts, i18n.ts (key resolver)
-  eslint.config.js      ESLint (type-aware, both projects)
-  tsconfig.e2e.json     the Playwright suites' TypeScript project (@types/node)
-  src/
-    main.tsx            entry: fonts, createRoot, StrictMode
-    App.tsx             providers, RouterProvider, GlobalErrorSnackbar
-    queryClient.ts      createQueryClient: the caches wired to the error net
-    router.tsx          route objects (data router): shell, pages (lazy beyond Home), error elements
-    i18n.ts             i18next init, SUPPORTED_LOCALES, missing-key report
-    test-setup.ts       jest-dom, the console guard (expectConsole), the matchMedia stub
-    api/                client.ts, auth.ts, errors.ts, errorReporting.ts, portal-api.d.ts (generated)
-    components/         primitives, pageState.ts, useClientSort.ts, a11y.ts
-    hooks/              useDocumentTitle.ts (useDocumentTitle, useRouteTitle)
-    layout/             ShellLayout (root route), Shell, ContentFallback, Nav, TopBar,
-                        IdentityCard, navItems, navPreferences, dimensions
-    pages/              Home, About (/build) + buildInfo.ts, NotFound, RouteError,
-                        items/ (page, dialog, form, query key)
-    theme/              tokens, MUI theme, contrast, fonts, ColorModeProvider, colorMode.ts
-    locales/            en-US.json, pt-BR.json
-    __tests__/          every Vitest suite, plus test-utils.tsx (renderWithProviders, renderRoutes)
-```
+**MUST**
 
-Layers are folders, and the one example resource is split between `pages/`
-(its screens) and `api/client.ts` (its calls). That reads well at one resource
-and stops reading well at five: a feature's files are spread across the tree,
-and `pages/` becomes a second place where features live.
+- Six layers, top to bottom: `app` → `pages` → `widgets` → `features` →
+  `entities` → `shared`. A module imports only layers **below** its own; `app`,
+  the composition root, may import every layer.
+- `pages`, `widgets`, `features` and `entities` are cut into slices by business
+  meaning; slices of one layer **never import each other**. What two slices
+  share moves down a layer, never sideways.
+- Every slice and every `shared` segment has a public API, its `index.ts`.
+  Outside the slice, import only through it, with the `@/` alias; inside the
+  slice, import relatively.
+- `shared` knows nothing of the product. Every call to the BFF goes through
+  `shared/api/client.ts`; generated contract types live only in
+  `shared/api/generated/`.
+- Folders are kebab-case; components `PascalCase.tsx` after their export;
+  hooks `useX.ts`; other modules `camelCase.ts` after their principal export;
+  pages `<Name>Page.tsx`.
+- A suite is `<module>.test.ts(x)` in the `__tests__/` of the slice or segment
+  that holds the module. The whole-tree guards live in `app/__tests__/guards/`.
 
-### Target
+All of it is mechanical: `npm run lint` runs `eslint-plugin-boundaries`
+(layers, sideways imports, deep imports past `index.ts`), `guards/boundaries.test.ts`
+proves those rules still fire against planted violations, and
+`guards/structure.test.ts` checks the naming and placement rules.
 
-```
-portal/web/
-  e2e/                          unchanged
-  src/
-    main.tsx                    entry
-    app/                        composition root — the only place that wires providers
-      App.tsx                   providers, RouterProvider, GlobalErrorSnackbar
-      queryClient.ts            createQueryClient (caches → api/errorReporting)
-      router.tsx                route tree: shell, feature routes (lazy), NotFound, errorElement
-      RouteError.tsx            the route error page
-      ColorModeProvider.tsx     color mode: state, persistence, useColorMode
-    api/                        transport, no React — paths portal/CLAUDE.md names stay
-      client.ts                 bffClient and every typed call
-      auth.ts                   CSRF + login-redirect middleware, APP_BASE_PATH
-      errors.ts                 ApiError, Problem Details
-      errorReporting.ts         the global net
-      errorPresentation.ts      how a failure reads (shared by banner and snackbar)
-      portal-api.d.ts           generated, git-ignored
-    components/                 generic primitives (DataTable + useClientSort, PageHeader, …)
-    hooks/                      cross-feature hooks (useDocumentTitle, useCopyToClipboard, …)
-    lib/                        pure helpers (formatting, display) — no React, no I/O
-    layout/                     the shell: Shell, Nav, TopBar, IdentityCard, navItems.ts
-    features/
-      items/
-        api/
-          queries.ts            itemKeys, itemQueries (queryOptions)
-          mutations.ts          itemMutations (mutationFn + invalidation)
-        components/             ItemDialog.tsx, DeleteItemDialog.tsx
-        model/
-          itemForm.ts           pure form logic
-        pages/
-          ItemsPage.tsx
-        routes.tsx              the feature's route objects (lazy page, title key)
-        __tests__/              ItemsPage.test.tsx, itemForm.test.ts
-      system/                   build information (/build) and the user-context queries
-    pages/                      app-level pages that belong to no feature: Home, NotFound
-    theme/                      unchanged
-    locales/                    unchanged
-    i18n.ts                     unchanged
-    test-setup.ts               unchanged
-    __tests__/                  test-utils.tsx and the suites that guard the whole tree:
-                                apiContract, locales, missingKeys, testsAssertKeys,
-                                errorReportingInventory, typecheck, theme, primitives
-```
+**SHOULD**
 
-### What goes where
-
-| Folder | Holds | Never holds |
-| --- | --- | --- |
-| `app/` | Providers, the query client, the route tree, the route error page | Screens, feature logic |
-| `api/` | The `openapi-fetch` client, its middleware, typed calls, error types, the global net | React, query keys, copy |
-| `components/` | Primitives any screen may use, and hooks that are part of a primitive's contract | `useQuery`, imports from `api/client.ts`, `features/` or `layout/`; copy other than their own chrome |
-| `hooks/`, `lib/` | Reusable hooks; pure functions | Feature knowledge |
-| `layout/` | The shell and its parts. May query what the shell shows (the identity) | Screen content |
-| `features/<name>/api/` | Query keys, `queryOptions`, mutation options — built on functions from `api/client.ts` | `fetch`, `bffClient`, a request of its own |
-| `features/<name>/model/` | Pure form and view logic | React |
-| `features/<name>/pages/` | One component per route | Primitives others would reuse |
-| `features/<name>/components/` | Parts only this feature uses | Anything a second feature needs — that moves to `components/` |
-| `pages/` | Home, NotFound | A page that belongs to a feature |
-
-Dependencies point one way: `app` → `layout`, `features`, `pages` →
-`components`, `hooks`, `lib` → `api`, `theme`, `i18n`. A feature does not
-import another feature's files; what two features share moves down a level.
-
-### Migration
-
-Move in this order — each step leaves the gate green.
-
-1. **Teach the source-scanning guards the new layout first.**
-   `testsAssertKeys.test.ts` globs `./**/*.{test,spec}.{ts,tsx}` from
-   `src/__tests__/`, so a suite moved into a feature would silently escape the
-   key rule; make it glob `/src/**/*.{test,spec}.{ts,tsx}`.
-   `errorReportingInventory.test.ts` treats every path outside `src/__tests__/`
-   as production code; make it skip `*.test.*` files instead, and update the
-   mutation ids it expects. Change the coverage exclude in `vite.config.ts` to
-   `src/**/__tests__/**`.
-2. Move `pages/items/` into `features/items/`, splitting `queryKeys.ts` into
-   `api/queries.ts` and `api/mutations.ts`. Move `About` and the user-context
-   key into `features/system/`.
-3. Move `App.tsx`, `queryClient.ts`, `router.tsx`, `pages/RouteError.tsx` and
-   `theme/ColorModeProvider.tsx` into `app/`, and add the `@/` alias. Each
-   feature then contributes its route objects from its own `routes.tsx`.
-4. Update the layout and *Adding a resource* sections of
-   [`portal/web/README.md`](../../portal/web/README.md).
-
-Two things stay where they are. The files `portal/CLAUDE.md` links to by path —
-`api/client.ts`, `api/auth.ts`, `api/errorReporting.ts`,
-`components/useClientSort.ts`, `locales/`, `__tests__/test-utils.tsx`,
-`__tests__/theme.test.ts` — keep their paths. And `api/client.ts` stays one
-file: `portal/CLAUDE.md` names it as the place every call goes through, and
-`apiContract.test.ts` reads it as text. Splitting it per resource means
-changing that rule and that suite together, deliberately.
+- **Pages first.** When code has one consumer, keep it in that page's slice
+  (`pages/build/api/buildQueries.ts`) and move it down when a second consumer
+  appears. A premature entity or feature is harder to undo than a late one.
+- Name a feature after the action (`edit-item`, `delete-item`), an entity after
+  the noun (`item`, `user`). The question "is it an action or a concept?"
+  settles most features-versus-entities doubts.
 
 ## 14. Adding a feature
 
@@ -609,34 +521,36 @@ For a resource `<name>` (plural, English), in this order:
    nothing to reshape (`portal/CLAUDE.md`, *The BFF stays thin*).
 2. **Generate.** `npm run generate:api`, then `npm run typecheck`, and follow
    the compiler.
-3. **Calls.** Add typed functions to `src/api/client.ts`: unwrap, throw
-   `ApiError`, forward `signal`. Re-export the schema types the screens use.
+3. **Calls.** Add typed functions to `src/shared/api/client.ts`: unwrap, throw
+   `ApiError`. Re-export them and the schema types from `src/shared/api/index.ts`.
    Add `client.test.ts` cases for the path, the method and the body.
-4. **Queries and mutations.** `features/<name>/api/queries.ts` (a key factory
-   and `queryOptions`) and `mutations.ts` (a `mutationFn` plus invalidation of
-   the feature's root key).
-5. **Model.** `features/<name>/model/<entity>Form.ts` if there is a form, with
-   limits mirrored from the contract and a unit test that reads them from the
-   YAML.
-6. **Page.** `features/<name>/pages/<Name>Page.tsx`: `PageHeader` with
+4. **Entity.** `src/entities/<name>/`: `api/<name>Queries.ts` (a key factory and
+   `queryOptions`), `model/<name>Form.ts` if there is a form (limits mirrored
+   from the contract, unit tested), and `index.ts` exporting them.
+5. **Features.** One slice per user action (`src/features/edit-<name>/`,
+   `src/features/delete-<name>/`): the control or dialog in `ui/`, its
+   `useMutation` inline, invalidating the entity's root key on success. A
+   mutation the slice renders inline carries `meta: REPORTED_INLINE`; any other
+   is listed in `CARRIED_BY_THE_NET`.
+6. **Page.** `src/pages/<name>/ui/<Name>Page.tsx`: `PageHeader` with
    `pageStateOf`, `ApiErrorBanner` for the query's failure, `DataTable` with
    `useClientSort` for a collection fetched whole or server-side sort for a paged
-   one (ADR-024). Each mutation the page renders inline carries
-   `meta: REPORTED_INLINE`; any other is listed in `CARRIED_BY_THE_NET`.
-7. **Route.** Add the feature's route object to the route tree in
-   `router.tsx`: an English segment that is not `bff`, `about` or `health`,
-   `lazy` for the page, `errorElement: <RouteError />` and
-   `handle: titled("<name>.title")`. `router.test.tsx` fails on a page without
-   the last two.
-8. **Navigation.** An entry in `layout/navItems.ts` under a `nav.<key>` label.
+   one (ADR-024). `src/pages/<name>/index.ts` exports the page.
+7. **Route.** In `src/app/router/router.tsx`: an English segment that is not
+   `bff`, `about` or `health`, `lazy` for the page, `errorElement: <RouteError />`
+   and `handle: titled("<name>.title")`. `router.test.tsx` fails on a page
+   without the last two.
+8. **Navigation.** An entry in `src/widgets/shell/model/navItems.ts` under a
+   `nav.<key>` label.
 9. **Copy.** Every new key — title, labels, tooltips, empty state, errors,
-   plural forms — in **both** bundles, in the same change.
-10. **Tests.** The screen suite through `t()` (list, empty, loading, failure,
-    each write, inline refusal, field error); an `apiContract.test.ts`
-    response-shape assertion for each shape the screen relies on; the route in
-    `e2e/portal.a11y.spec.ts`'s `ROUTES`, and an a11y test for each dialog or
-    inline error the sweep cannot reach; a journey step in
-    `e2e/*.journey.spec.ts` when the feature is a shipped journey (ADR-014).
+   plural forms — in **both** `src/shared/i18n/locales/*.json`, in the same
+   change.
+10. **Tests.** Suites in each new slice's `__tests__/`, through `t()` (list,
+    empty, loading, failure, each write, inline refusal, field error); an
+    `apiContract.test.ts` response-shape assertion for each shape the screen
+    relies on; the route in `e2e/portal.a11y.spec.ts`'s `ROUTES`, and an a11y
+    test for each dialog or inline error the sweep cannot reach; a journey step
+    in `e2e/*.journey.spec.ts` when the feature is a shipped journey (ADR-014).
 11. **Verify.** From `portal/web/`:
     `npm ci && npm run lint && npm run format:check && npm run test:coverage && npm run build`,
     then `npm run test:a11y`. If coverage rose, the ratchet moves as
@@ -647,21 +561,22 @@ For a resource `<name>` (plural, English), in this order:
 What the tree does not yet follow. Each item is marked **(adopt)** where it is
 stated above; remove it from both places when it lands.
 
-Landed since the review of 2026-09-30: the data router with an error element
+Already adopted: the data router with an error element
 per page and a root one for the shell; a localized document title per route;
 lazily loaded screens and split vendor chunks under Vite's default size
 warning; the route-tree guard in `apiContract.test.ts`; ESLint and Prettier in
 the CI gate; type-checking of `e2e/` and `playwright.config.ts`; the console
-guard in `test-setup.ts`, restored mocks, and no `act` warnings; the color mode
-in a provider instead of props; handled clipboard rejections.
+guard in `shared/testing/setup.ts`, restored mocks, and no `act` warnings; the color mode
+in a provider instead of props; handled clipboard rejections; the Feature-Sliced
+layout with its boundaries enforced by lint (ADR-027); query key factories with
+`queryOptions` per entity.
 
 - **Routing:** no focus move on navigation.
-- **Remote state:** inline query keys (`About.tsx`, `IdentityCard.tsx`) and no
-  `queryOptions`; no `signal` forwarded (`api/client.ts`); a paused query
+- **Remote state:** no `signal` forwarded (`shared/api/client.ts`); a paused query
   renders nothing (`pageStateOf` reads `isLoading`); `IdentityCard` renders a
   failure as "loading".
 - **Components and hooks:** a side effect inside a state updater
-  (`navPreferences.ts`, `toggleCollapsed`); uncleared timers in
+  (`widgets/shell/model/useNavCollapsed.ts`); uncleared timers in
   `ApiErrorBanner.tsx` and `GlobalErrorSnackbar.tsx`, with the
   failure-rendering logic duplicated between them; the color mode is not
   persisted.

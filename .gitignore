@@ -16,7 +16,7 @@ blob-report/
 .vite/
 npm-debug.log*
 # Generated from the OpenAPI contract by `npm run generate:api`.
-portal/web/src/api/portal-api.d.ts
+portal/web/src/shared/api/generated/
 
 # --- Terraform (see also infra/terraform/.gitignore) ---
 .terraform/

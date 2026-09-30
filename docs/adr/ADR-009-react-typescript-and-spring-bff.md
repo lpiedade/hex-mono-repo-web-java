@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: Template baseline
-- Related: [ADR-002](ADR-002-layered-core-and-apps-boundary.md), [ADR-007](ADR-007-spring-boot-http-api-composition-root.md), [ADR-010](ADR-010-oidc-server-side-session-and-browser-security.md), [ADR-011](ADR-011-jwt-resource-server-and-roles.md), [ADR-012](ADR-012-generated-contracts-and-remote-frontend-state.md), [ADR-013](ADR-013-mui-wcag-22-aa-design-system.md), [ADR-017](ADR-017-static-spa-without-a-reverse-proxy.md), [ADR-025](ADR-025-aws-deployment-topology.md)
+- Related: [ADR-002](ADR-002-layered-core-and-apps-boundary.md), [ADR-007](ADR-007-spring-boot-http-api-composition-root.md), [ADR-010](ADR-010-oidc-server-side-session-and-browser-security.md), [ADR-011](ADR-011-jwt-resource-server-and-roles.md), [ADR-012](ADR-012-generated-contracts-and-remote-frontend-state.md), [ADR-013](ADR-013-mui-wcag-22-aa-design-system.md), [ADR-017](ADR-017-static-spa-without-a-reverse-proxy.md), [ADR-025](ADR-025-aws-deployment-topology.md), [ADR-027](ADR-027-feature-sliced-design-for-the-spa.md)
 
 ## Context
 

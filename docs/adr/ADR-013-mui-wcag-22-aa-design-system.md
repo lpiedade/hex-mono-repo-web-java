@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: Template baseline
-- Related: [ADR-009](ADR-009-react-typescript-and-spring-bff.md), [ADR-014](ADR-014-real-service-browser-acceptance.md)
+- Related: [ADR-009](ADR-009-react-typescript-and-spring-bff.md), [ADR-014](ADR-014-real-service-browser-acceptance.md), [ADR-027](ADR-027-feature-sliced-design-for-the-spa.md)
 
 ## Context
 

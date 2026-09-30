@@ -33,7 +33,7 @@ Selected by `app.bff.auth.mode`:
 | `oidc` (default) | The BFF runs the OIDC authorization-code flow and keeps the tokens in a server-side session; the browser holds only the session cookie. A proxied call without a session answers `401` with code `SESSION_REQUIRED`, and the SPA navigates to `/app/bff/oauth2/authorization/oidc`. Mutating requests carry `X-XSRF-TOKEN`, copied from the `XSRF-TOKEN` cookie. |
 | `dev` | No login. The BFF attaches a pre-shared dev token to every proxied call. Local development only. |
 
-The SPA's side of this lives in `web/src/api/auth.ts`, and it asks nothing
+The SPA's side of this lives in `web/src/shared/api/auth.ts`, and it asks nothing
 about the mode: it reacts to what the BFF answers, so the same bundle serves
 both. Sign-out is `POST /app/bff/logout` followed by a reload.
 
@@ -54,8 +54,10 @@ may start with those segments.
 ## Code layout
 
 - `bff/` — Spring Boot 4, packages under `com.example.app.portal`.
-- `web/` — Vite project; see [`web/README.md`](web/README.md) for commands,
-  routes and environment variables.
+- `web/` — Vite project, organized by Feature-Sliced Design
+  ([ADR-027](../docs/adr/ADR-027-feature-sliced-design-for-the-spa.md)); see
+  [`web/README.md`](web/README.md) for its folder structure, import rules,
+  commands, routes and environment variables.
 
 ## Local development
 

@@ -5,7 +5,7 @@ coverage/
 playwright-report/
 test-results/
 blob-report/
-src/api/portal-api.d.ts
+src/shared/api/generated/
 package-lock.json
 
 # Prose follows the repository's documentation conventions, not this
