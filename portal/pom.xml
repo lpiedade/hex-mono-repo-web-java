@@ -25,21 +25,7 @@
         <!-- Coverage floors for the BFF only; the SPA's live in web/vite.config.ts. -->
         <coverage.floor.instruction>0.9708</coverage.floor.instruction>
         <coverage.floor.branch>0.7777</coverage.floor.branch>
-        <!-- Spring Boot 4's test framework is built on JUnit 6 (as in apps/api). -->
-        <junit.version>6.0.3</junit.version>
     </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.junit</groupId>
-                <artifactId>junit-bom</artifactId>
-                <version>${junit.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <dependency>

@@ -25,7 +25,13 @@
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <junit.version>5.13.4</junit.version>
+        <!--
+            One JUnit line for every module. Spring Boot 4 / Spring Framework 7
+            require JUnit 6, and the plain-Java modules have no reason to stay
+            behind, so the BOM below pins it for the whole reactor. Keep it at
+            or above the version Boot's own BOM manages.
+        -->
+        <junit.version>6.0.3</junit.version>
         <postgresql.version>42.7.7</postgresql.version>
         <testcontainers.version>2.0.5</testcontainers.version>
         <!--

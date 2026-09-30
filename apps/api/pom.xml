@@ -23,8 +23,6 @@
         <!-- Coverage floors: docs/performance/coverage-ratchet.md -->
         <coverage.floor.instruction>0.8871</coverage.floor.instruction>
         <coverage.floor.branch>0.6477</coverage.floor.branch>
-        <!-- Spring Boot 4's test framework is built on JUnit 6. -->
-        <junit.version>6.0.3</junit.version>
         <!--
             Swagger UI static assets for the dev-profile documentation page. The
             version is referenced by the resource handler in SwaggerUiDevConfig;
@@ -32,23 +30,6 @@
         -->
         <swagger-ui.version>5.21.0</swagger-ui.version>
     </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <!--
-                Override the JUnit 5 line the parent pins for the plain-Java modules:
-                Spring Boot 4 / Spring Framework 7 require JUnit 6. Scoped to this
-                module so core and the adapters keep their JUnit 5 stack.
-            -->
-            <dependency>
-                <groupId>org.junit</groupId>
-                <artifactId>junit-bom</artifactId>
-                <version>${junit.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <dependency>
