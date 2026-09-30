@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.example.app</groupId>
+        <artifactId>app-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>adapter-jvm</artifactId>
+    <name>App :: JVM Adapter</name>
+    <description>
+        Adapts the host JVM's non-deterministic facilities — wall-clock instant,
+        monotonic nanosecond counter, and random identity — to the core ports
+        TimeSource, Ticker, and IdGenerator (ADR-015 rule 8). The implementations
+        are method references; this module carries no runtime dependencies beyond
+        core.
+    </description>
+
+    <properties>
+        <!-- Coverage floors: docs/performance/coverage-ratchet.md. No branches to measure. -->
+        <coverage.floor.instruction>1.0000</coverage.floor.instruction>
+        <coverage.floor.branch>0.00</coverage.floor.branch>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.example.app</groupId>
+            <artifactId>core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

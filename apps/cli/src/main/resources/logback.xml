@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Log configuration for the CLI (ADR-016). Not logback-spring.xml: there is no Spring
+    context here, so logback reads this file directly.
+
+    Two rules, and they are the whole point of the file.
+
+    1. Every log line goes to STDERR. The CLI's stdout is a contract - commands write
+       their output through an injected PrintStream that the tests assert on - so a
+       library that logs to stdout would corrupt machine-readable output.
+
+    2. The root stays at WARN. A command that succeeds prints its output and nothing
+       else; the verbose flag raises this at runtime (CliLogging).
+
+    A malformed file here is worse than none: logback's fallback configuration writes to
+    stdout, so a parse error would corrupt the very contract this file protects. That is
+    what CliLoggingTest asserts. (A double hyphen inside an XML comment is such an error.)
+-->
+<configuration>
+
+    <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <encoder>
+            <!--
+                Terser than the services' pattern: no correlation id, because an
+                invocation is its own unit of work, and no thread name.
+            -->
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSS, UTC} %-5level %logger{30} : %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="WARN">
+        <appender-ref ref="STDERR"/>
+    </root>
+
+</configuration>

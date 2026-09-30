@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example.app</groupId>
+    <artifactId>app-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>App</name>
+    <description>Hexagonal Java monorepo: core, adapters, HTTP API, CLI and web portal</description>
+
+    <modules>
+        <module>core</module>
+        <module>adapters/persistence</module>
+        <module>adapters/jvm</module>
+        <module>apps/api</module>
+        <module>portal</module>
+        <module>apps/cli</module>
+    </modules>
+
+    <properties>
+        <maven.compiler.release>25</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <junit.version>5.13.4</junit.version>
+        <postgresql.version>42.7.7</postgresql.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
+        <!--
+            ArchUnit drives the nightly ring report in core (ADR-015). It *imports*
+            class files up to major version 71 (Java 27) but *runs on* JDK 8 through
+            25 only. Moving the toolchain past 25 needs an ArchUnit release that
+            supports it first, or -Parchitecture stops working. Test scope in core
+            alone, so core's shipped artifact keeps zero runtime dependencies
+            (ADR-003).
+        -->
+        <archunit.version>1.5.0</archunit.version>
+        <!--
+            Spring Boot 4.0 (Spring Framework 7) is the first line whose bundled
+            ASM parses Java 25 class files; earlier lines fail component scanning
+            on this JDK. Imported here only as managed versions, so core acquires
+            no dependency (ADR-003).
+        -->
+        <spring-boot.version>4.0.8</spring-boot.version>
+        <openapi-generator.version>7.14.0</openapi-generator.version>
+        <maven.compiler.version>3.14.1</maven.compiler.version>
+        <maven.surefire.version>3.5.4</maven.surefire.version>
+        <maven.enforcer.version>3.6.3</maven.enforcer.version>
+        <maven.antrun.version>3.1.0</maven.antrun.version>
+        <jacoco.version>0.8.13</jacoco.version>
+        <!--
+            Coverage floors — the ratchet (ADR-019).
+
+            Each module overrides these two in its own POM with the ratio its last
+            recorded measurement observed, truncated to four decimals so the floor
+            is at or below what was measured and never above it.
+
+            The default is 0, which is what a module inherits by saying nothing:
+            adding a module must not fail the build for want of a floor nobody has
+            measured, and a floor of 0 is visibly absent rather than quietly
+            plausible. The readings and the procedure for moving a floor are in
+            docs/performance/coverage-ratchet.md; a floor is never edited without
+            editing that file in the same change.
+        -->
+        <coverage.floor.instruction>0.00</coverage.floor.instruction>
+        <coverage.floor.branch>0.00</coverage.floor.branch>
+        <!--
+            Failsafe's own switch for a unit-only run. Declared here so the
+            coverage check can read it: `-DskipITs` writes a report that
+            understates every module, and a floor applied to it would make the
+            documented unit-only command unusable.
+        -->
+        <skipITs>false</skipITs>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!--
+                Project-pinned BOMs are declared first: for import-scope BOMs the
+                earliest declaration wins, so these versions take precedence over
+                the ones Spring Boot would otherwise manage.
+            -->
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!--
+                The plain artifact, not archunit-junit5: it declares slf4j-api and
+                nothing else, and is driven by a ClassFileImporter from an ordinary
+                test rather than by a TestEngine (ADR-015).
+            -->
+            <dependency>
+                <groupId>com.tngtech.archunit</groupId>
+                <artifactId>archunit</artifactId>
+                <version>${archunit.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven.compiler.version}</version>
+                    <configuration>
+                        <!--
+                            Keep parameter names in the bytecode. Spring binds
+                            @PathVariable and @RequestParam by them, and without
+                            spring-boot-starter-parent nothing else turns this on.
+                        -->
+                        <parameters>true</parameters>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven.surefire.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>${maven.surefire.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>${maven.enforcer.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-antrun-plugin</artifactId>
+                    <version>${maven.antrun.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.openapitools</groupId>
+                    <artifactId>openapi-generator-maven-plugin</artifactId>
+                    <version>${openapi-generator.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <!--
+                Measure coverage, then hold it (ADR-019).
+
+                Many suites here are integration tests, so unit coverage alone
+                would badly understate apps/api and every adapter. Both phases are
+                recorded to separate exec files and merged, and both the report
+                and the check are built from the merge.
+
+                What is enforced is a ratchet, not a target: a per-module floor
+                equal to the last recorded measurement and no higher. It answers
+                one question — did this change reduce what the tests reach? — and
+                answers it against a figure that was observed rather than argued
+                for.
+            -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <configuration>
+                    <!--
+                        Code generated from the OpenAPI contract (ADR-012) is none
+                        of it hand-written and none of it worth a test. Leaving it in
+                        would put a module's number at the mercy of the contract's
+                        size and make any comparison between two builds meaningless.
+                    -->
+                    <excludes>
+                        <exclude>com/example/app/api/contract/**</exclude>
+                        <exclude>com/example/app/cli/contract/**</exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>coverage-agent-unit</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                        <configuration>
+                            <destFile>${project.build.directory}/jacoco-unit.exec</destFile>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>coverage-agent-integration</id>
+                        <goals>
+                            <goal>prepare-agent-integration</goal>
+                        </goals>
+                        <configuration>
+                            <destFile>${project.build.directory}/jacoco-integration.exec</destFile>
+                        </configuration>
+                    </execution>
+                    <!--
+                        Merge before reporting so one report answers "is this line
+                        covered by anything". Two separate reports would leave a line
+                        covered only by an IT looking uncovered.
+                    -->
+                    <execution>
+                        <id>coverage-merge</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>merge</goal>
+                        </goals>
+                        <configuration>
+                            <fileSets>
+                                <fileSet>
+                                    <directory>${project.build.directory}</directory>
+                                    <includes>
+                                        <include>jacoco-unit.exec</include>
+                                        <include>jacoco-integration.exec</include>
+                                    </includes>
+                                </fileSet>
+                            </fileSets>
+                            <destFile>${project.build.directory}/jacoco.exec</destFile>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>coverage-report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                        <configuration>
+                            <dataFile>${project.build.directory}/jacoco.exec</dataFile>
+                            <outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
+                        </configuration>
+                    </execution>
+                    <!--
+                        The ratchet. Declared after coverage-report so it reads a
+                        merge that has already been written: within one phase,
+                        executions of the same plugin run in declaration order.
+
+                        BUNDLE, not CLASS or PACKAGE: the question is about the
+                        module, and a per-class floor would fail a build for adding
+                        a thin, well-understood class. Both counters carry a floor,
+                        because a floor on instructions alone lets error paths erode
+                        untouched.
+
+                        Skipped for -DskipITs, and only for that: a unit-only run
+                        understates every module. -DskipTests leaves no execution
+                        data at all, and JaCoCo skips a missing data file by itself.
+                        Passing -Djacoco.skip is not a sanctioned way past a floor —
+                        lowering one is an edit to a POM and to the reading, which is
+                        reviewable.
+                    -->
+                    <execution>
+                        <id>coverage-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${skipITs}</skip>
+                            <dataFile>${project.build.directory}/jacoco.exec</dataFile>
+                            <haltOnFailure>true</haltOnFailure>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>INSTRUCTION</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.floor.instruction}</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.floor.branch}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!--
+                Fail the build when a test was skipped rather than executed (ADR-006).
+
+                Every Testcontainers suite carries
+                @Testcontainers(disabledWithoutDocker = true), so without a
+                container runtime the suites disable themselves and the reactor
+                exits 0 having executed no integration test at all — the same exit
+                code, and the same silence, as a run in which all of them passed.
+
+                Surefire and failsafe already record every skip in the per-class
+                report they write. This reads what was always there.
+
+                To run unit tests only, use failsafe's own documented switch:
+                    mvn verify -DskipITs
+                There is deliberately no second opt-out: the repository has no
+                @Disabled test, so any skip is a hole.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>fail-on-skipped-tests</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <fileset id="build.skipped.reports"
+                                         dir="${project.build.directory}"
+                                         erroronmissingdir="false">
+                                    <include name="surefire-reports/TEST-*.xml"/>
+                                    <include name="failsafe-reports/TEST-*.xml"/>
+                                    <!--
+                                        The <testsuite> element carries the per-class
+                                        count as an attribute, so skipped="0" is
+                                        excluded and skipped="10" is matched on its
+                                        leading digit.
+                                    -->
+                                    <containsregexp expression="skipped=&quot;[1-9]"/>
+                                </fileset>
+                                <pathconvert property="build.skipped.list"
+                                             refid="build.skipped.reports"
+                                             pathsep="${line.separator}    ">
+                                    <mapper type="flatten"/>
+                                </pathconvert>
+                                <condition property="build.skips.present">
+                                    <resourcecount refid="build.skipped.reports"
+                                                   when="greater" count="0"/>
+                                </condition>
+                                <fail if="build.skips.present">
+Required tests were skipped in ${project.artifactId} rather than executed:
+
+    ${build.skipped.list}
+
+A skipped suite proves nothing, and a build that passes with one is
+indistinguishable from a build that verified the behaviour (ADR-006).
+
+The usual cause is no reachable container runtime, which makes every
+@Testcontainers(disabledWithoutDocker = true) suite disable itself. Start
+the runtime, or point DOCKER_HOST at its socket, and run again.
+
+To run unit tests only, say so explicitly:
+
+    mvn verify -DskipITs
+                                </fail>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -1,0 +1,133 @@
+{
+  "app": {
+    "name": "Portal da Aplicação",
+    "mark": "A",
+    "skipToContent": "Pular para o conteúdo principal",
+    "contentLoading": "Carregando conteúdo"
+  },
+  "nav": {
+    "label": "Navegação principal",
+    "open": "Abrir navegação",
+    "home": "Início",
+    "items": "Itens",
+    "about": "Sobre",
+    "collapse": "Recolher navegação ({{shortcut}})",
+    "expand": "Expandir navegação ({{shortcut}})",
+    "collapsedAnnouncement": "Navegação recolhida para ícones",
+    "expandedAnnouncement": "Navegação expandida"
+  },
+  "theme": {
+    "toggleDark": "Mudar para o tema escuro",
+    "toggleLight": "Mudar para o tema claro"
+  },
+  "language": {
+    "select": "Mudar idioma"
+  },
+  "identity": {
+    "label": "Usuário conectado",
+    "loading": "Carregando usuário…",
+    "roles": "Papéis",
+    "signOut": "Sair",
+    "role": {
+      "READER": "Leitor",
+      "EDITOR": "Editor(a)",
+      "ADMIN": "Administrador(a)"
+    }
+  },
+  "error": {
+    "bffUnavailable": "Não foi possível acessar o portal. Verifique sua conexão e tente novamente.",
+    "upstreamUnavailable": "O serviço está temporariamente indisponível. Tente novamente em instantes.",
+    "apiCode": "Código",
+    "apiCorrelationId": "ID de correlação",
+    "apiCopySummary": "Copiar resumo do erro",
+    "apiCopied": "Copiado",
+    "unreportedTitle": "A solicitação não foi concluída"
+  },
+  "pageState": {
+    "loading": "Carregando…",
+    "empty": "Ainda não há nada aqui.",
+    "partial": "Parte destas informações não pôde ser carregada.",
+    "stale": "Estas informações podem estar desatualizadas.",
+    "unavailable": "Estas informações não estão disponíveis no momento.",
+    "forbidden": "Você não tem permissão para ver isto.",
+    "error": "Algo deu errado."
+  },
+  "table": {
+    "empty": "Nenhuma linha para mostrar.",
+    "sortAnnouncement": "Ordenado por {{column}}, {{direction}}",
+    "sortedAscending": "crescente",
+    "sortedDescending": "decrescente",
+    "pagination": {
+      "rowsPerPage": "Linhas por página",
+      "displayedRows": "{{from}}–{{to}} de {{count}}",
+      "firstPage": "Primeira página",
+      "lastPage": "Última página",
+      "nextPage": "Próxima página",
+      "previousPage": "Página anterior"
+    }
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "save": "Salvar",
+    "create": "Criar",
+    "delete": "Excluir"
+  },
+  "home": {
+    "title": "Boas-vindas",
+    "subtitle": "Um ponto de partida para o seu portal.",
+    "items": {
+      "title": "Itens",
+      "body": "Itens são o recurso de exemplo do template: liste, crie, edite e exclua de ponta a ponta, passando pelo BFF e pela API.",
+      "cta": "Ir para itens"
+    }
+  },
+  "items": {
+    "title": "Itens",
+    "subtitle": "Todos os itens, em ordem de nome.",
+    "create": "Novo item",
+    "caption": "Lista de itens",
+    "empty": "Nenhum item ainda. Crie o primeiro.",
+    "count_one": "{{count}} item",
+    "count_other": "{{count}} itens",
+    "edit": "Editar {{name}}",
+    "delete": "Excluir {{name}}",
+    "fields": {
+      "name": "Nome",
+      "description": "Descrição",
+      "updatedAt": "Última atualização",
+      "actions": "Ações"
+    },
+    "form": {
+      "createTitle": "Novo item",
+      "editTitle": "Editar item",
+      "counter": "{{length}} / {{max}}",
+      "errors": {
+        "nameRequired": "Informe um nome.",
+        "nameTooLong": "Use no máximo {{max}} caracteres.",
+        "descriptionTooLong": "Use no máximo {{max}} caracteres."
+      }
+    },
+    "deleteDialog": {
+      "title": "Excluir item?",
+      "message": "“{{name}}” será excluído. Esta ação não pode ser desfeita."
+    }
+  },
+  "about": {
+    "title": "Sobre",
+    "subtitle": "Qual build de cada entregável está em execução.",
+    "portal": "Portal",
+    "api": "API da aplicação",
+    "version": "Versão",
+    "commit": "Commit",
+    "builtAt": "Gerado em",
+    "portalApiVersion": "Versão da API do portal",
+    "bundleCommit": "Commit do bundle web",
+    "bundleBuiltAt": "Bundle web gerado em"
+  },
+  "notFound": {
+    "title": "Página não encontrada",
+    "body": "Não há nada em {{path}}.",
+    "home": "Ir para o início"
+  }
+}

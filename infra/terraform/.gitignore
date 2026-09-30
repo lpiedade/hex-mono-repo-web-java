@@ -1,0 +1,16 @@
+# Provider plugins and module downloads.
+.terraform/
+.terraform.lock.hcl
+
+# 00-bootstrap keeps its state on disk; the other two keep theirs in S3.
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+
+# Real variable values. Only the *.example files are committed.
+terraform.tfvars
+*.auto.tfvars
+backend.hcl
+
+# Plan files can contain secret values in clear text.
+*.tfplan

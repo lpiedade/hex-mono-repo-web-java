@@ -1,0 +1,7 @@
+# Every issue starts from a template, so acceptance criteria stay traceable to
+# their FR / AC IDs (CLAUDE.md, "Implementation issue conventions").
+blank_issues_enabled: false
+contact_links:
+  - name: Architecture decisions
+    url: https://github.com/OWNER/REPO/tree/main/docs/adr
+    about: Read the ADRs before proposing a change to something they cover.

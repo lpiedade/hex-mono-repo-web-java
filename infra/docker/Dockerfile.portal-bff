@@ -1,0 +1,35 @@
+# Portal BFF container image (ADR-009).
+#
+# Context: repository root. Requires the exec jar to be pre-built:
+#   mvn clean verify -pl portal -am
+#
+# The exec jar path encodes the project version. The ARG below matches the
+# version in the root pom.xml; update both together when the version changes.
+ARG JAR_FILE=portal/target/portal-0.1.0-SNAPSHOT-exec.jar
+
+# Eclipse Temurin 25 JRE matches the JDK the project compiles with (ADR-001).
+# The JRE-only image omits the compiler and all development tools.
+FROM eclipse-temurin:25-jre-alpine AS runtime
+
+# Non-root. The BFF only reads its own jar and writes to the system temp
+# directory, so it is compatible with a read-only root filesystem when /tmp is
+# a tmpfs mount.
+RUN addgroup -S -g 1001 bff \
+    && adduser -S -u 1001 -G bff bff
+WORKDIR /app
+ARG JAR_FILE
+COPY --chown=bff:bff ${JAR_FILE} app.jar
+USER bff
+EXPOSE 8081
+
+# Environment (see .env.example and infra/terraform/02-platform/bff.tf):
+#   APP_BFF_API_BASE_URL   - root URL of the API (default: http://localhost:8080)
+#   APP_BFF_AUTH_MODE      - oidc (default) or dev
+#   APP_OIDC_ISSUER_URI    - OIDC issuer, when APP_BFF_AUTH_MODE=oidc
+#   APP_OIDC_CLIENT_ID     - OIDC client id
+#   APP_OIDC_CLIENT_SECRET - OIDC client secret
+#   APP_AUTH_DEV_TOKEN     - bearer injected into proxied calls, when APP_BFF_AUTH_MODE=dev
+#   APP_LOG_LEVEL          - root log level
+#
+# Routes: /app/bff/** (proxy, OIDC login/callback, logout), /app/health, /app/about
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

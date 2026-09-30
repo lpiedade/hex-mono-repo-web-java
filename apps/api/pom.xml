@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.example.app</groupId>
+        <artifactId>app-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>api</artifactId>
+    <name>App :: API</name>
+    <description>
+        Spring Boot HTTP inbound adapter and composition root (ADR-007). Exposes
+        /api/v1. Response models are generated from docs/arch/api-layer/openapi-v1.yaml
+        (ADR-012); controllers are thin and delegate to core.
+    </description>
+
+    <properties>
+        <!-- Coverage floors: docs/performance/coverage-ratchet.md -->
+        <coverage.floor.instruction>0.8871</coverage.floor.instruction>
+        <coverage.floor.branch>0.6477</coverage.floor.branch>
+        <!-- Spring Boot 4's test framework is built on JUnit 6. -->
+        <junit.version>6.0.3</junit.version>
+        <!--
+            Swagger UI static assets for the dev-profile documentation page. The
+            version is referenced by the resource handler in SwaggerUiDevConfig;
+            keep the two in sync.
+        -->
+        <swagger-ui.version>5.21.0</swagger-ui.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!--
+                Override the JUnit 5 line the parent pins for the plain-Java modules:
+                Spring Boot 4 / Spring Framework 7 require JUnit 6. Scoped to this
+                module so core and the adapters keep their JUnit 5 stack.
+            -->
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.example.app</groupId>
+            <artifactId>core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.example.app</groupId>
+            <artifactId>adapter-persistence</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.example.app</groupId>
+            <artifactId>adapter-jvm</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <!-- JWT validation for app.auth.mode=jwt (ADR-011). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- jakarta.validation annotations on the generated contract models. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <!-- Reads the authored YAML contract to serve it as JSON too (OpenApiController). -->
+        <dependency>
+            <groupId>tools.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-yaml</artifactId>
+        </dependency>
+
+        <!--
+            Swagger UI static assets, served only under the 'dev' profile by
+            SwaggerUiDevConfig; the OpenAPI document itself is always served by
+            OpenApiController. Bundled (no CDN) so the UI works offline. springdoc
+            is intentionally not used: the authoritative contract is the
+            hand-authored openapi-v1.yaml, served verbatim, not a document derived
+            from controllers.
+        -->
+        <dependency>
+            <groupId>org.webjars</groupId>
+            <artifactId>swagger-ui</artifactId>
+            <version>${swagger-ui.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--
+            Operational persistence (ADR-008): Spring JDBC (JdbcClient) + explicit
+            SQL and Flyway-owned migrations. No JPA/Hibernate and no runtime schema
+            generation. Spring Boot 4 modularizes auto-configuration, so Flyway's
+            lives in spring-boot-flyway; flyway-core alone would never run
+            migrations.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!--
+            The application requires its operational store to start (fail-closed),
+            so every full-context *IT boots a PostgreSQL Testcontainer (ADR-006).
+        -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+                Serve the authoritative OpenAPI contract at runtime: copy
+                openapi-v1.yaml onto the main classpath so OpenApiController streams
+                the exact published bytes. Same single source the model generator
+                below consumes, so the served document and the models never drift.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-openapi-contract</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}/openapi</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${project.basedir}/../../docs/arch/api-layer</directory>
+                                    <includes>
+                                        <include>openapi-v1.yaml</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+                ADR-012: response models are generated from the authoritative
+                contract, never hand-written. Only models are generated; controllers
+                stay hand-written and thin (ADR-007).
+            -->
+            <plugin>
+                <groupId>org.openapitools</groupId>
+                <artifactId>openapi-generator-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>generate-contract-models</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/../../docs/arch/api-layer/openapi-v1.yaml</inputSpec>
+                            <generatorName>spring</generatorName>
+                            <library>spring-boot</library>
+                            <output>${project.build.directory}/generated-sources/openapi</output>
+                            <generateApis>false</generateApis>
+                            <generateApiTests>false</generateApiTests>
+                            <generateApiDocumentation>false</generateApiDocumentation>
+                            <generateModels>true</generateModels>
+                            <generateModelTests>false</generateModelTests>
+                            <generateModelDocumentation>false</generateModelDocumentation>
+                            <generateSupportingFiles>false</generateSupportingFiles>
+                            <modelPackage>com.example.app.api.contract.model</modelPackage>
+                            <configOptions>
+                                <useSpringBoot3>true</useSpringBoot3>
+                                <useJakartaEe>true</useJakartaEe>
+                                <openApiNullable>false</openApiNullable>
+                                <serializationLibrary>jackson</serializationLibrary>
+                                <annotationLibrary>none</annotationLibrary>
+                                <documentationProvider>none</documentationProvider>
+                                <useBeanValidation>true</useBeanValidation>
+                                <sourceFolder>src/main/java</sourceFolder>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <!--
+                                build-info writes META-INF/build-info.properties so
+                                Spring auto-configures a BuildProperties bean, which
+                                is what GET /api/v1/about reports.
+                            -->
+                            <goal>build-info</goal>
+                            <goal>repackage</goal>
+                        </goals>
+                        <configuration>
+                            <!--
+                                Attach the executable fat jar under a classifier so the
+                                plain jar remains the main artifact. Without this, the
+                                repackaged jar (classes under BOOT-INF/) becomes the
+                                test classpath entry of portal's ITs, which then cannot
+                                load the application classes.
+                            -->
+                            <classifier>exec</classifier>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+                Writes git.properties to target/classes/ so Spring auto-configures a
+                GitProperties bean for /api/v1/about. The abbreviation length is
+                pinned because the portal compares this string with the one baked
+                into the browser bundle, and git's own default is adaptive. A build
+                outside a git checkout reports the commit as "unknown".
+            -->
+            <plugin>
+                <groupId>io.github.git-commit-id</groupId>
+                <artifactId>git-commit-id-maven-plugin</artifactId>
+                <version>9.0.1</version>
+                <executions>
+                    <execution>
+                        <id>get-git-info</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>revision</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <generateGitPropertiesFile>true</generateGitPropertiesFile>
+                    <generateGitPropertiesFilename>
+                        ${project.build.outputDirectory}/git.properties
+                    </generateGitPropertiesFilename>
+                    <abbrevLength>7</abbrevLength>
+                    <failOnNoGitDirectory>false</failOnNoGitDirectory>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

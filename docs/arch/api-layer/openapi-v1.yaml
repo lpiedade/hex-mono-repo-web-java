@@ -1,0 +1,308 @@
+openapi: 3.1.0
+info:
+  title: Application API
+  description: |
+    Application API contract, schemaVersion 1. The URL base is `/api/v1`.
+    Every response body that carries domain data has `schemaVersion` as its
+    first field.
+
+    This document is hand-maintained and authoritative (ADR-012): the API's
+    response models, the CLI's client and — through `portal-api-v1.yaml` — the
+    portal's TypeScript types are all generated from it. The API serves it
+    verbatim at `/v3/api-docs.yaml`.
+
+    **Every path declared here is served.** `ContractPathsAreServedTest` fails
+    the build when a declared path has no controller mapping. A contract states
+    what the server does, not what it might do later.
+
+    Authorization: every `/api/v1` operation requires a bearer token (ADR-011).
+    Reads require `READER`; writes require `EDITOR`.
+
+    `items` is the template's example resource. Replace it with the first real
+    aggregate of the new project.
+  version: "1.0.0"
+
+servers:
+  - url: /api/v1
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Items
+    description: Example aggregate carried end to end by the template.
+  - name: System
+    description: Caller identity and build information.
+
+paths:
+  /items:
+    get:
+      tags: [Items]
+      summary: List items
+      operationId: listItems
+      description: Every item, ordered by name.
+      responses:
+        "200":
+          description: The items.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ItemList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Items]
+      summary: Create an item
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ItemRequest" }
+      responses:
+        "201":
+          description: The created item.
+          headers:
+            Location:
+              description: URL of the created item.
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Item" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /items/{itemId}:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    get:
+      tags: [Items]
+      summary: Read an item
+      operationId: getItem
+      responses:
+        "200":
+          description: The item.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Item" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Items]
+      summary: Replace an item's editable fields
+      operationId: updateItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ItemRequest" }
+      responses:
+        "200":
+          description: The updated item.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Item" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [Items]
+      summary: Delete an item
+      operationId: deleteItem
+      responses:
+        "204":
+          description: Deleted.
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /user-context:
+    get:
+      tags: [System]
+      summary: The authenticated caller
+      operationId: getUserContext
+      responses:
+        "200":
+          description: Subject and effective roles.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserContext" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /about:
+    get:
+      tags: [System]
+      summary: Build coordinates of the deployed API
+      operationId: getAbout
+      responses:
+        "200":
+          description: Version, commit and build time.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiBuildInfo" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: The request is malformed (including a path id that is not a UUID) or fails validation.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Unauthenticated:
+      description: No valid bearer token.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Forbidden:
+      description: The caller lacks the required role.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    NotFound:
+      description: The resource does not exist.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Conflict:
+      description: The request conflicts with the current state.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+
+  schemas:
+    SchemaVersion:
+      type: integer
+      enum: [1]
+      description: Version of the response body shape.
+
+    Item:
+      type: object
+      required: [schemaVersion, id, name, createdAt, updatedAt]
+      properties:
+        schemaVersion: { $ref: "#/components/schemas/SchemaVersion" }
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 1000
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ItemList:
+      type: object
+      required: [schemaVersion, items]
+      properties:
+        schemaVersion: { $ref: "#/components/schemas/SchemaVersion" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Item" }
+
+    ItemRequest:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 1000
+
+    UserContext:
+      type: object
+      required: [schemaVersion, subject, roles]
+      properties:
+        schemaVersion: { $ref: "#/components/schemas/SchemaVersion" }
+        subject:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [READER, EDITOR, ADMIN]
+
+    BuildCoordinates:
+      type: object
+      required: [version, commit, builtAt]
+      properties:
+        version: { type: string }
+        commit: { type: string }
+        builtAt: { type: string }
+
+    ApiBuildInfo:
+      type: object
+      required: [schemaVersion, build]
+      properties:
+        schemaVersion: { $ref: "#/components/schemas/SchemaVersion" }
+        build: { $ref: "#/components/schemas/BuildCoordinates" }
+
+    ProblemDetails:
+      type: object
+      description: RFC 9457 problem detail. Never contains stack traces, SQL, or secrets.
+      required: [type, title, status, code, schemaVersion, correlationId]
+      properties:
+        type:
+          type: string
+          format: uri
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        code:
+          type: string
+          description: Stable machine-readable error code.
+          examples: [ITEM_NOT_FOUND, ITEM_NAME_EXISTS]
+        schemaVersion: { $ref: "#/components/schemas/SchemaVersion" }
+        correlationId:
+          type: string
+        errors:
+          type: array
+          description: Field-level validation errors, when applicable.
+          items: { $ref: "#/components/schemas/FieldError" }
+
+    FieldError:
+      type: object
+      required: [field, code]
+      properties:
+        field:
+          type: string
+        code:
+          type: string
+        message:
+          type: string

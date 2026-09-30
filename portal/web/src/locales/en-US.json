@@ -1,0 +1,133 @@
+{
+  "app": {
+    "name": "App Portal",
+    "mark": "A",
+    "skipToContent": "Skip to main content",
+    "contentLoading": "Loading content"
+  },
+  "nav": {
+    "label": "Main navigation",
+    "open": "Open navigation",
+    "home": "Home",
+    "items": "Items",
+    "about": "About",
+    "collapse": "Collapse navigation ({{shortcut}})",
+    "expand": "Expand navigation ({{shortcut}})",
+    "collapsedAnnouncement": "Navigation collapsed to icons",
+    "expandedAnnouncement": "Navigation expanded"
+  },
+  "theme": {
+    "toggleDark": "Switch to dark theme",
+    "toggleLight": "Switch to light theme"
+  },
+  "language": {
+    "select": "Change language"
+  },
+  "identity": {
+    "label": "Signed-in user",
+    "loading": "Loading user…",
+    "roles": "Roles",
+    "signOut": "Sign out",
+    "role": {
+      "READER": "Reader",
+      "EDITOR": "Editor",
+      "ADMIN": "Administrator"
+    }
+  },
+  "error": {
+    "bffUnavailable": "The portal could not be reached. Check your connection and try again.",
+    "upstreamUnavailable": "The service is temporarily unavailable. Try again in a moment.",
+    "apiCode": "Code",
+    "apiCorrelationId": "Correlation ID",
+    "apiCopySummary": "Copy error summary",
+    "apiCopied": "Copied",
+    "unreportedTitle": "The request did not complete"
+  },
+  "pageState": {
+    "loading": "Loading…",
+    "empty": "There is nothing here yet.",
+    "partial": "Some of this information could not be loaded.",
+    "stale": "This information may be out of date.",
+    "unavailable": "This information is unavailable right now.",
+    "forbidden": "You do not have permission to see this.",
+    "error": "Something went wrong."
+  },
+  "table": {
+    "empty": "No rows to show.",
+    "sortAnnouncement": "Sorted by {{column}}, {{direction}}",
+    "sortedAscending": "ascending",
+    "sortedDescending": "descending",
+    "pagination": {
+      "rowsPerPage": "Rows per page",
+      "displayedRows": "{{from}}–{{to}} of {{count}}",
+      "firstPage": "First page",
+      "lastPage": "Last page",
+      "nextPage": "Next page",
+      "previousPage": "Previous page"
+    }
+  },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "create": "Create",
+    "delete": "Delete"
+  },
+  "home": {
+    "title": "Welcome",
+    "subtitle": "A starting point for your portal.",
+    "items": {
+      "title": "Items",
+      "body": "Items are the template's example resource: list, create, edit and delete them end to end, through the BFF and the API.",
+      "cta": "Go to items"
+    }
+  },
+  "items": {
+    "title": "Items",
+    "subtitle": "Every item, ordered by name.",
+    "create": "New item",
+    "caption": "Item list",
+    "empty": "No items yet. Create the first one.",
+    "count_one": "{{count}} item",
+    "count_other": "{{count}} items",
+    "edit": "Edit {{name}}",
+    "delete": "Delete {{name}}",
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "updatedAt": "Last updated",
+      "actions": "Actions"
+    },
+    "form": {
+      "createTitle": "New item",
+      "editTitle": "Edit item",
+      "counter": "{{length}} / {{max}}",
+      "errors": {
+        "nameRequired": "Enter a name.",
+        "nameTooLong": "Use at most {{max}} characters.",
+        "descriptionTooLong": "Use at most {{max}} characters."
+      }
+    },
+    "deleteDialog": {
+      "title": "Delete item?",
+      "message": "“{{name}}” will be deleted. This cannot be undone."
+    }
+  },
+  "about": {
+    "title": "About",
+    "subtitle": "Which build of each deliverable is running.",
+    "portal": "Portal",
+    "api": "Application API",
+    "version": "Version",
+    "commit": "Commit",
+    "builtAt": "Built",
+    "portalApiVersion": "Portal API version",
+    "bundleCommit": "Web bundle commit",
+    "bundleBuiltAt": "Web bundle built"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "Nothing lives at {{path}}.",
+    "home": "Go to home"
+  }
+}

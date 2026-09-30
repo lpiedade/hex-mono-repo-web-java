@@ -1,0 +1,43 @@
+project     = "app"
+environment = "dev"
+region      = "us-east-1"
+
+# Set false only in an account that enforces Block Public Access centrally and
+# denies s3:PutBucketPublicAccessBlock - see the variable's description.
+# manage_public_access_block = true
+
+vpc_cidr = "10.42.0.0/16"
+
+# -- Operator network access --------------------------------------------------
+# 02-platform connects to the private RDS instance from wherever Terraform
+# runs. Either peer the VPC that host lives in (same account and region)...
+#
+# operator_vpc_id            = "vpc-xxxxxxxx"
+# operator_vpc_cidr          = "172.31.0.0/16"
+# operator_security_group_id = "sg-xxxxxxxx"
+# operator_route_table_ids   = ["rtb-xxxxxxxx"]
+#
+# ...or, when a route already exists (VPN, runner inside this VPC), just admit
+# its range to the database:
+#
+# operator_cidr_blocks = ["10.8.0.0/16"]
+
+# Narrow this to the operator's egress addresses.
+# cluster_endpoint_public_access_cidrs = ["203.0.113.10/32"]
+
+# -- Sizing -------------------------------------------------------------------
+node_instance_type = "t3.large"
+node_desired_size  = 2
+node_min_size      = 2
+node_max_size      = 4
+
+db_instance_class        = "db.t4g.small"
+db_allocated_storage     = 20
+db_backup_retention_days = 7
+db_multi_az              = false
+db_deletion_protection   = false
+
+# extra_tags = {
+#   CostCenter = "..."
+#   Owner      = "..."
+# }

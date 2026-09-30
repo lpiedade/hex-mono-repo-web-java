@@ -1,0 +1,98 @@
+# Local topology: PostgreSQL, and optionally the API and the BFF.
+#
+#   docker compose up -d
+#       PostgreSQL only. This is what infra/scripts/run-local.sh starts before
+#       it runs the API and the BFF on the host.
+#
+#   docker compose --profile app up -d --build
+#       PostgreSQL, the API (:8080) and the BFF (:8081) in containers. The
+#       images copy pre-built jars, so build them first:
+#         mvn clean verify -pl apps/api,portal -am
+#
+# The SPA is static assets and is not a Compose service (ADR-017): run
+# `npm run dev` (:5173) or `npm run build && npx vite preview` (:4173) in
+# portal/web, which serve it under /app/ and proxy /app/bff, /app/health and
+# /app/about to the BFF on :8081.
+#
+# Copy .env.example to .env first. APP_DB_PASSWORD and APP_AUTH_DEV_TOKEN have
+# no committed value; Compose refuses to start without them, even for
+# PostgreSQL alone, because it interpolates the whole file.
+
+# Pinned so every checkout and worktree of this repository shares one set of
+# containers and one database volume, instead of one per directory name.
+name: app
+
+services:
+  # The API's operational store. Created empty; Flyway migrates the schema on
+  # API startup.
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in .env (copy .env.example)}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      # The committed default is loopback, which inside a container is
+      # unreachable from anywhere else.
+      APP_SERVER_ADDRESS: 0.0.0.0
+      APP_DB_URL: jdbc:postgresql://postgres:5432/app
+      APP_DB_USERNAME: app
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in .env (copy .env.example)}
+      # Local development only: `prod` refuses this mode.
+      APP_AUTH_MODE: dev-token
+      APP_AUTH_DEV_TOKEN: ${APP_AUTH_DEV_TOKEN:?Set APP_AUTH_DEV_TOKEN in .env (generate one, see .env.example)}
+      APP_LOG_LEVEL: ${APP_LOG_LEVEL:-INFO}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness | grep -q UP"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  bff:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.portal-bff
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      APP_BFF_API_BASE_URL: http://api:8080
+      # Local development only: the BFF injects the dev token into every
+      # proxied call instead of running the OIDC login.
+      APP_BFF_AUTH_MODE: dev
+      APP_AUTH_DEV_TOKEN: ${APP_AUTH_DEV_TOKEN:?Set APP_AUTH_DEV_TOKEN in .env (generate one, see .env.example)}
+      APP_LOG_LEVEL: ${APP_LOG_LEVEL:-INFO}
+    ports:
+      - "8081:8081"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/app/health | grep -q UP"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres-data:

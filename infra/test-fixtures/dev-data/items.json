@@ -1,0 +1,6 @@
+[
+  { "name": "Getting started", "description": "An example item created by seed-dev-data.sh. Edit or delete it freely." },
+  { "name": "Replace the example aggregate", "description": "Items exist to show a resource end to end. Rename them to the first real aggregate of the project." },
+  { "name": "Read the ADRs", "description": "docs/adr records why the template is shaped the way it is." },
+  { "name": "No description" }
+]

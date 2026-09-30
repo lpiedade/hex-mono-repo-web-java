@@ -1,0 +1,91 @@
+spring:
+  application:
+    name: app-api
+  jackson:
+    # Omit null/absent optional fields so Problem Details bodies stay minimal.
+    default-property-inclusion: non_null
+    mapper:
+      # Preserve the contract's property order (schemaVersion first on every
+      # domain body) instead of Jackson's alphabetical default.
+      sort-properties-alphabetically: false
+  # Operational store (ADR-008). Credentials are supplied out-of-band and never
+  # committed; *IT tests override these with a PostgreSQL Testcontainer. The
+  # application fails closed when the store is unreachable.
+  datasource:
+    url: ${APP_DB_URL:jdbc:postgresql://localhost:5432/app}
+    username: ${APP_DB_USERNAME:app}
+    password: ${APP_DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${APP_DB_MAX_POOL_SIZE:10}
+  flyway:
+    # Flyway exclusively owns the operational schema (ADR-021); no runtime
+    # schema generation. Same location as OperationalSchema.LOCATION.
+    enabled: true
+    locations: classpath:db/migration
+
+# Log levels (ADR-016). The format lives in logback-spring.xml, which is where
+# %X{correlationId} is printed; only thresholds are configuration. The
+# application's own level is separately overridable so raising it does not also
+# raise Spring, Hikari and Flyway.
+logging:
+  level:
+    root: ${APP_LOG_LEVEL:INFO}
+    com.example.app: ${APP_LOG_LEVEL_APP:INFO}
+
+server:
+  port: 8080
+  # Loopback by default: a non-loopback bind is a deliberate exposure, so it is
+  # opt-in. Container deployments set APP_SERVER_ADDRESS=0.0.0.0. The effective
+  # address is logged at startup (NetworkExposureLogger).
+  address: ${APP_SERVER_ADDRESS:127.0.0.1}
+  error:
+    # Defence in depth: never let the default error path leak internals. Errors
+    # are rendered as RFC 9457 Problem Details by the API's own handlers.
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Expose only health: no metrics, env, beans, mappings, loggers or dumps.
+        include: health
+  endpoint:
+    health:
+      # Never disclose JDBC URLs, usernames, versions or exception text.
+      show-details: never
+      show-components: never
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          # readinessState flips DOWN during graceful shutdown; db is the
+          # operational store.
+          include: readinessState,db
+
+app:
+  auth:
+    # "jwt" (default): validate bearer JWTs issued by issuer-uri (ADR-011).
+    # "dev-token": accept one pre-shared token granting every role. Local
+    # development and tests only; refused under the 'prod' profile.
+    mode: ${APP_AUTH_MODE:jwt}
+    # OIDC issuer whose JWTs this API accepts. Required when mode=jwt; the
+    # signing keys are discovered from it on first use.
+    issuer-uri: ${APP_AUTH_ISSUER_URI:}
+    # Claim holding the caller's roles. A dotted path walks nested claims, e.g.
+    # realm_access.roles for Keycloak. Values are matched against AppRole names.
+    roles-claim: ${APP_AUTH_ROLES_CLAIM:roles}
+    # Required when mode=dev-token. From the environment; never committed.
+    dev-token: ${APP_AUTH_DEV_TOKEN:}
+    dev-subject: ${APP_AUTH_DEV_SUBJECT:dev@app.local}
+  cors:
+    # Disabled by default: with an empty origin list the API sends no CORS
+    # headers. The browser reaches the API through the same-origin BFF, so CORS
+    # is only for a deliberate integration. A credentialed wildcard is rejected
+    # at startup.
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:}
+    allow-credentials: ${APP_CORS_ALLOW_CREDENTIALS:false}

@@ -1,0 +1,44 @@
+# Application API container image.
+#
+# Context: repository root. Requires the exec jar to be pre-built:
+#   mvn clean verify -pl apps/api -am
+#
+# Built by infra/scripts/build-and-push.sh, which runs that Maven command
+# first. The same shape as Dockerfile.portal-bff on purpose: the jar is built
+# by Maven outside the image, not by a builder stage, so a container build
+# never re-resolves the dependency tree and never diverges from the artifact
+# `mvn verify` produced.
+#
+# The exec jar path encodes the project version. The ARG below matches the
+# version in the root pom.xml; update both together when the version changes.
+ARG JAR_FILE=apps/api/target/api-0.1.0-SNAPSHOT-exec.jar
+
+# Eclipse Temurin 25 JRE matches the JDK the project compiles with (ADR-001).
+# The JRE-only image omits the compiler and all development tools.
+FROM eclipse-temurin:25-jre-alpine AS runtime
+
+# Non-root. The uid and gid are pinned rather than left to adduser, because a
+# deployment that mounts a volume has to name them (fsGroup), and
+# infra/terraform/02-platform/api.tf does.
+RUN addgroup -S -g 1001 app \
+    && adduser -S -u 1001 -G app app
+WORKDIR /app
+ARG JAR_FILE
+COPY --chown=app:app ${JAR_FILE} app.jar
+
+USER app
+EXPOSE 8080
+
+# Environment (see .env.example and infra/terraform/02-platform/api.tf):
+#   APP_SERVER_ADDRESS        - must be 0.0.0.0 in a container; the default is loopback
+#   APP_DB_URL/USERNAME/PASSWORD - the operational PostgreSQL database
+#   APP_AUTH_MODE             - jwt (default) or dev-token
+#   APP_AUTH_ISSUER_URI       - JWT issuer, when APP_AUTH_MODE=jwt
+#   APP_AUTH_ROLES_CLAIM      - claim that carries the roles (default: roles)
+#   APP_AUTH_DEV_TOKEN        - pre-shared bearer, when APP_AUTH_MODE=dev-token
+#   APP_CORS_ALLOWED_ORIGINS  - empty unless the browser calls the API cross-origin
+#   APP_LOG_LEVEL             - root log level
+#   SPRING_PROFILES_ACTIVE    - `prod` refuses dev-token mode; `dev` enables Swagger UI
+#
+# Health: /actuator/health, /actuator/health/liveness, /actuator/health/readiness
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

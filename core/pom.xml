@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.example.app</groupId>
+        <artifactId>app-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>core</artifactId>
+    <name>App :: Core</name>
+
+    <properties>
+        <!-- Coverage floors: docs/performance/coverage-ratchet.md -->
+        <coverage.floor.instruction>0.8671</coverage.floor.instruction>
+        <coverage.floor.branch>1.0000</coverage.floor.branch>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!--
+            Test-only assertion library, version managed by the Spring Boot BOM in
+            the parent. It reaches the test classpath alone, so core's shipped
+            artifact keeps its zero runtime dependencies (ADR-003).
+        -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!--
+            Drives the nightly ring report (ADR-015). Note for anyone bumping it:
+            the enforcer execution below runs with searchTransitive=true, so an
+            ArchUnit release that acquires a dependency beyond slf4j-api could fail
+            core's mvn validate.
+        -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+                Enforces ADR-003. Without this, core's independence is a convention
+                that nothing checks; a stray dependency would only be caught in review.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>ban-infrastructure-dependencies</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <message>
+                                        core must stay free of application frameworks, JDBC drivers,
+                                        database vendor classes, cloud SDKs, and orchestration
+                                        frameworks. See docs/adr/ADR-003-core-dependency-exclusions.md
+                                    </message>
+                                    <searchTransitive>true</searchTransitive>
+                                    <excludes>
+                                        <!-- Application frameworks -->
+                                        <exclude>org.springframework:*</exclude>
+                                        <exclude>org.springframework.boot:*</exclude>
+                                        <exclude>jakarta.enterprise:*</exclude>
+                                        <!-- JDBC drivers and vendor classes -->
+                                        <exclude>org.postgresql:*</exclude>
+                                        <exclude>com.oracle.database.jdbc:*</exclude>
+                                        <exclude>com.microsoft.sqlserver:*</exclude>
+                                        <exclude>com.mysql:*</exclude>
+                                        <exclude>com.h2database:*</exclude>
+                                        <!-- Persistence, migration, and ORM frameworks -->
+                                        <exclude>org.flywaydb:*</exclude>
+                                        <exclude>org.hibernate:*</exclude>
+                                        <exclude>org.hibernate.orm:*</exclude>
+                                        <exclude>jakarta.persistence:*</exclude>
+                                        <!-- Cloud SDKs -->
+                                        <exclude>software.amazon.awssdk:*</exclude>
+                                        <exclude>com.amazonaws:*</exclude>
+                                        <exclude>com.google.cloud:*</exclude>
+                                        <exclude>com.azure:*</exclude>
+                                        <!-- Orchestration and distributed processing -->
+                                        <exclude>org.apache.spark:*</exclude>
+                                        <exclude>org.apache.kafka:*</exclude>
+                                        <exclude>org.quartz-scheduler:*</exclude>
+                                        <!-- Compile-time code generation -->
+                                        <exclude>org.projectlombok:*</exclude>
+                                        <!--
+                                            Logging (ADR-016). core is silent: it reports
+                                            operational events by returning them, so it
+                                            needs no facade and no backend. This half of
+                                            the rule catches a logging library arriving as
+                                            a dependency; the antrun check below catches
+                                            the JDK's own System.Logger, which the
+                                            enforcer cannot see.
+
+                                            Scoped to compile and runtime deliberately: a
+                                            facade on the test classpath ships nothing,
+                                            and the archunit artifact depends on slf4j-api.
+                                        -->
+                                        <exclude>org.slf4j:*:*:*:compile</exclude>
+                                        <exclude>org.slf4j:*:*:*:runtime</exclude>
+                                        <exclude>ch.qos.logback:*:*:*:compile</exclude>
+                                        <exclude>ch.qos.logback:*:*:*:runtime</exclude>
+                                        <exclude>org.apache.logging.log4j:*:*:*:compile</exclude>
+                                        <exclude>org.apache.logging.log4j:*:*:*:runtime</exclude>
+                                        <exclude>commons-logging:*:*:*:compile</exclude>
+                                        <exclude>commons-logging:*:*:*:runtime</exclude>
+                                    </excludes>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+                Enforces the other half of ADR-016. System.Logger and
+                java.util.logging are JDK packages, so no dependency rule can ban
+                them: a stray System.getLogger in core would compile and ship. This
+                is the same blind spot ADR-004 has with java.nio.file, and the same
+                remedy.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>ban-logging-apis-in-core</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <fileset id="core.logging.offenders" dir="${project.basedir}/src/main/java">
+                                    <include name="**/*.java"/>
+                                    <containsregexp expression="System\.getLogger|System\.Logger|java\.util\.logging|org\.slf4j|org\.apache\.logging|System\.(out|err)\."/>
+                                </fileset>
+                                <!--
+                                    setonempty="false" leaves the property unset when the
+                                    fileset matches nothing, which is what makes the
+                                    `fail if` below fire only on a real violation.
+                                -->
+                                <pathconvert property="core.logging.offenders.list"
+                                             refid="core.logging.offenders"
+                                             pathsep="${line.separator}    "
+                                             setonempty="false"/>
+                                <fail if="core.logging.offenders.list" message="
+core must not use a logging API (ADR-016).
+
+core is silent by design: a flow reports what it observed by returning it, and the
+application that hosts the flow decides how to log it. That is what lets core keep
+zero main-scope dependencies (ADR-003) and stay independent of the process it runs in.
+
+If a flow has something to report, add it to the flow's result type and log it in the
+caller.
+
+Offending files:
+    ${core.logging.offenders.list}
+                                "/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+                ADR-015 makes the ring report an instrument, not a gate: it must not
+                change what `mvn clean verify` does. Excluded here and re-included by
+                the architecture profile below.
+
+                An exclusion rather than a conditional-disable inside the test,
+                because a disabled test reports as skipped and the root POM's
+                fail-on-skipped-tests guard fails the build on a skip. An excluded
+                test produces no report entry at all.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>**/ArchitectureTest.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!--
+            The nightly ring report (ADR-015). Run it locally with
+            `mvn -Parchitecture verify`; the scheduled workflow activates this same
+            profile scoped to `-pl core`, because the rules examine no other module.
+        -->
+        <profile>
+            <id>architecture</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes combine.self="override"/>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

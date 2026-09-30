@@ -1,0 +1,561 @@
+name: Build
+
+# Single CI workflow: credential scan, Maven verify and the portal's checks,
+# in one job.
+#
+# One job on purpose: GitHub bills each job rounded up to the whole minute, so
+# a ~10s credential scan in its own job would cost a full minute on every
+# event. The scan runs before the toolchain is installed, so a leaked
+# credential fails the run in seconds instead of after a full build.
+
+on:
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Nightly main check. It is also the only lane that runs the browser
+    # journey suite (see the Journey steps below), and a signal that main is
+    # healthy after merges when no push build exists.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+run-name: >-
+  ${{ github.event_name == 'schedule' && 'Scheduled main check' ||
+      github.event_name == 'workflow_dispatch' && 'Manual main check' ||
+      format('PR #{0}', github.event.pull_request.number) }}
+
+permissions:
+  contents: read
+  # Needed to list a pull request's changed files for the docs-only check below.
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Credential scan patterns (see the main scan step for details):
+#
+#   A   *PASSWORD* variable assigned a non-env literal — shell, YAML, properties.
+#       Catches: APP_DB_PASSWORD=value, POSTGRES_PASSWORD=value
+#       Skips:   …=${VAR:-default}  …="$VAR"  …='$VAR'  …=${VAR:?…}
+#
+#   A2  *PASSWD* variable assigned a non-env literal (same syntax, shorter key).
+#       Catches: POSTGRES_PASSWD=value
+#
+#   B   password / passwd / pwd key assigned a non-env literal.
+#       YAML, Docker Compose, properties: key: value
+#       Skips: password: ${VAR:}  password: ${VAR:-default}  password: "${VAR}"
+#
+#   B2  "password" key with a quoted JSON value.
+#       Catches: "password": "value"
+#
+#   C  Credential embedded in a connection URL.
+#      Catches: scheme://user:secret@host  ?password=value  &password=value
+#
+# Allowlist: .github/secret-scan-allowlist.conf  (path-anchored, with justification)
+# Self-test fixtures:
+#   .github/test-fixtures/secret-scan-selftest-violations.env  (violation direction)
+#   .github/test-fixtures/secret-scan-selftest-clean.env       (clean direction)
+
+jobs:
+  verify:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # -----------------------------------------------------------------------
+      # Self-test: verify the scanner catches violations before trusting it.
+      # Runs the patterns against a committed fixture file that contains one
+      # planted literal for each supported syntax.  Fails the job if the
+      # patterns match nothing, which would mean the scanner is silently broken.
+      # The fixture is allowlisted in secret-scan-allowlist.conf.
+      # -----------------------------------------------------------------------
+      - name: Self-test — scanner must detect planted literals
+        run: |
+          FIXTURE=".github/test-fixtures/secret-scan-selftest-violations.env"
+
+          # Pattern A: *PASSWORD* = <non-env literal>
+          PAT_A='[A-Za-z_]*[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd][A-Za-z_]*=[^$[:space:]][^[:space:]]*'
+
+          # Pattern A2: *PASSWD* = <non-env literal>  (6-char form, no O-R)
+          PAT_A2='[A-Za-z_]*[Pp][Aa][Ss][Ss][Ww][Dd][A-Za-z_]*=[^$[:space:]][^[:space:]]*'
+
+          # Pattern B: password|passwd|pwd key: <non-env literal>  (YAML/properties)
+          PAT_B='[Pp]assword[[:space:]]*:[[:space:]]*[^$[:space:]][^[:space:]]*'
+          PAT_BPASWD='[Pp]asswd[[:space:]]*:[[:space:]]*[^$[:space:]][^[:space:]]*'
+          PAT_B_PWD='pwd[[:space:]]*:[[:space:]]*[^$[:space:]][^[:space:]]*'
+
+          # Pattern B2: "password" : "literal"  (quoted JSON key and value)
+          PAT_B2='"[Pp]assword"[[:space:]]*:[[:space:]]*"[^"$]'
+
+          FOUND=$(grep -En \
+            -e "$PAT_A" -e "$PAT_A2" \
+            -e "$PAT_B" -e "$PAT_BPASWD" -e "$PAT_B_PWD" \
+            -e "$PAT_B2" \
+            "$FIXTURE" || true)
+
+          if [[ -z "$FOUND" ]]; then
+            echo "::error::Self-test FAILED: scanner did not detect any planted literals."
+            echo "The patterns may be broken.  Fixture: $FIXTURE"
+            exit 1
+          fi
+
+          echo "Self-test passed — scanner detected planted literals:"
+          echo "$FOUND"
+
+      # -----------------------------------------------------------------------
+      # Self-test: verify the filters pass legitimate shapes.
+      # Runs the full pattern + post-filter chain against a committed fixture
+      # that contains env references and source identifiers.  Fails the job if
+      # any of those legitimate shapes survive to become a finding, which would
+      # mean the filters are broken.  The fixture is NOT allowlisted — it must
+      # pass the scanner on its own.
+      # -----------------------------------------------------------------------
+      - name: Self-test — clean shapes must not be flagged
+        run: |
+          FIXTURE=".github/test-fixtures/secret-scan-selftest-clean.env"
+
+          PAT_A='[A-Za-z_]*[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd][A-Za-z_]*=[^$[:space:]][^[:space:]]*'
+          PAT_A2='[A-Za-z_]*[Pp][Aa][Ss][Ss][Ww][Dd][A-Za-z_]*=[^$[:space:]][^[:space:]]*'
+          PAT_B='[Pp]assword[[:space:]]*:[[:space:]]*[^$[:space:]][^[:space:]]*'
+          PAT_BPASWD='[Pp]asswd[[:space:]]*:[[:space:]]*[^$[:space:]][^[:space:]]*'
+          PAT_B_PWD='pwd[[:space:]]*:[[:space:]]*[^$[:space:]][^[:space:]]*'
+          PAT_B2='"[Pp]assword"[[:space:]]*:[[:space:]]*"[^"$]'
+
+          FOUND=$(grep -En \
+            -e "$PAT_A" -e "$PAT_A2" \
+            -e "$PAT_B" -e "$PAT_BPASWD" -e "$PAT_B_PWD" \
+            -e "$PAT_B2" \
+            "$FIXTURE" \
+            | grep -Ev '(=|:)[[:space:]]*["'"'"']?[$][{A-Za-z_]' \
+            | grep -Ev '="[[:space:]]*[+"]' \
+            | grep -Ev '=[[:space:]]*[^[:space:]]*\(' \
+            | grep -Ev '==[[:space:]]' \
+            | grep -Ev '=[[:space:]]*[a-z][a-zA-Z0-9_]*;' \
+            | grep -Ev ':[0-9]+:[[:space:]]*(#|//)' \
+            | grep -Ev '(=|:)[[:space:]]*["'"'"']["'"'"']' \
+            | grep -Ev ':[[:space:]]*(string|number|boolean)[;,)}[:space:]]*$' \
+            || true)
+
+          if [[ -n "$FOUND" ]]; then
+            echo "::error::Self-test FAILED: scanner flagged a legitimate shape:"
+            echo "$FOUND"
+            exit 1
+          fi
+
+          echo "Self-test passed — no legitimate shapes were flagged."
+
+      # -----------------------------------------------------------------------
+      # Main scan — every committed text file, all extensions.
+      #
+      # Scanned patterns:
+      #
+      #   A   *PASSWORD* variable with a literal value.
+      #       Shell, env-file, and properties syntax: KEY=value
+      #       Value must not start with $ (env ref), space (prevents backtracking
+      #       from consuming the separator space instead of the value char).
+      #
+      #   A2  *PASSWD* variable with a literal value (same syntax, 6-char key).
+      #
+      #   B   password / passwd / pwd key with a literal value.
+      #       YAML and properties syntax: key: value
+      #       Same backtracking guard: [^$[:space:]] at the value start.
+      #
+      #   B2  "password" JSON key with a quoted literal value.
+      #       JSON syntax: "key": "value"
+      #
+      #   C  Credential embedded in a connection URL:
+      #        scheme://user:literal@host  (inline credential in URL)
+      #        ?password=value  &password=value  (query-string parameter)
+      #
+      # Excluded paths (deny-list — new file types scanned by default):
+      #   .env.example — intentional placeholders; documents names only
+      #   .env         — runtime file git-ignored by policy; excluded defensively
+      #   .claude/     — agent worktrees; not part of the committed source tree
+      #
+      # Post-filters strip non-literal source patterns that the regex
+      # over-matches:
+      #   (=|:) "$VAR" / '...' / ${VAR}  →  quoted or bare env reference
+      #   ="..." + …                      →  Java string-concatenation pattern
+      #   method(…)                       →  value contains ( — it is a call
+      #   identifier == …                 →  double-equals is a comparison
+      #   identifier;                     →  trailing ; is a Java statement end
+      #   # … or // …                     →  comment-only line in grep output
+      #   : "" or = ''                    →  empty string literal: a cleared form
+      #                                      field, never a credential
+      #   : string | number | boolean     →  a TypeScript type annotation, not a
+      #                                      value (`password: string;`)
+      #
+      # Findings covered by .github/secret-scan-allowlist.conf are suppressed.
+      # Every allowlist entry must carry a written justification.
+      # -----------------------------------------------------------------------
+      - name: Scan for committed literal credentials
+        run: |
+          ALLOWLIST=".github/secret-scan-allowlist.conf"
+
+          # Build allowlisted path list (skip comments and blank lines).
+          mapfile -t ALLOWED_PATHS < <(grep -v '^\s*#' "$ALLOWLIST" | grep -v '^\s*$')
+
+          # Pattern A: *PASSWORD* = <non-env literal>
+          PAT_A='[A-Za-z_]*[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd][A-Za-z_]*=[^$[:space:]][^[:space:]]*'
+
+          # Pattern A2: *PASSWD* = <non-env literal>  (6-char form)
+          PAT_A2='[A-Za-z_]*[Pp][Aa][Ss][Ss][Ww][Dd][A-Za-z_]*=[^$[:space:]][^[:space:]]*'
+
+          # Pattern B: password | passwd | pwd key: <non-env literal>  (YAML/properties)
+          PAT_B='[Pp]assword[[:space:]]*:[[:space:]]*[^$[:space:]][^[:space:]]*'
+          PAT_BPASWD='[Pp]asswd[[:space:]]*:[[:space:]]*[^$[:space:]][^[:space:]]*'
+          PAT_B_PWD='pwd[[:space:]]*:[[:space:]]*[^$[:space:]][^[:space:]]*'
+
+          # Pattern B2: "password" : "literal"  (JSON quoted key and value)
+          PAT_B2='"[Pp]assword"[[:space:]]*:[[:space:]]*"[^"$]'
+
+          # Pattern C: URL-embedded credential
+          # scheme://user:literal@host — value between : and @ must not start with $ or {
+          PAT_C_URL='://[^:@[:space:]/]+:[^@[:space:]/\$\{][^@[:space:]]*@[a-zA-Z0-9]'
+          # ?password=value or &password=value
+          PAT_C_QS='[?&][Pp]assword=[^&[:space:]\$\{][^&[:space:]]*'
+
+          RAW=$(git grep -rn --no-color -E \
+            -e "$PAT_A" \
+            -e "$PAT_A2" \
+            -e "$PAT_B" \
+            -e "$PAT_BPASWD" \
+            -e "$PAT_B_PWD" \
+            -e "$PAT_B2" \
+            -e "$PAT_C_URL" \
+            -e "$PAT_C_QS" \
+            -- ':!.env.example' ':!.env' ':!.claude/' \
+            || true)
+
+          # ----
+          # Post-filters: remove false positives that the regex over-matches.
+          #
+          # 1. Env references in value position: = "$VAR", = '${VAR}', : ${VAR}
+          #    [$] is a character-class matching a literal dollar sign.
+          # 2. Java string-concatenation: KEY="..." + something — the closing
+          #    quote of a string literal is immediately followed by space + +.
+          # 3. Method calls: value contains ( — Java/Groovy source identifier.
+          # 4. Double-equals comparison: == follows a single = (Java/scripts).
+          # 5. Bare lowercase identifier ending in ; — Java variable reference.
+          # 6. Comment-only lines: git grep output whose content starts with
+          #    # or // after optional whitespace.
+          # ----
+          FILTERED=$(echo "$RAW" \
+            | grep -Ev '(=|:)[[:space:]]*["'"'"']?[$][{A-Za-z_]' \
+            | grep -Ev '="[[:space:]]*[+"]' \
+            | grep -Ev '=[[:space:]]*[^[:space:]]*\(' \
+            | grep -Ev '==[[:space:]]' \
+            | grep -Ev '=[[:space:]]*[a-z][a-zA-Z0-9_]*;' \
+            | grep -Ev ':[0-9]+:[[:space:]]*(#|//)' \
+            | grep -Ev '(=|:)[[:space:]]*["'"'"']["'"'"']' \
+            | grep -Ev ':[[:space:]]*(string|number|boolean)[;,)}[:space:]]*$' \
+            || true)
+
+          # Apply the allowlist.
+          VIOLATIONS=""
+          while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            FILE="${line%%:*}"
+            COVERED=false
+            for ap in "${ALLOWED_PATHS[@]}"; do
+              if [[ "$FILE" == "$ap" ]]; then
+                COVERED=true
+                break
+              fi
+            done
+            if [[ "$COVERED" == false ]]; then
+              VIOLATIONS+="$line"$'\n'
+            fi
+          done <<< "$FILTERED"
+
+          if [[ -n "$VIOLATIONS" ]]; then
+            echo "::error::Committed literal credential detected."
+            echo ""
+            echo "If this is a legitimate shape — a Testcontainers literal, a documentation"
+            echo "example, or a test constant — add an entry to:"
+            echo "  .github/secret-scan-allowlist.conf"
+            echo "with a written justification.  The entry must be path-anchored."
+            echo ""
+            echo "$VIOLATIONS"
+            exit 1
+          fi
+
+          echo "OK — no committed literal credentials found."
+
+      # -----------------------------------------------------------------------
+      # Docs-only short-circuit.
+      #
+      # The credential scan above always runs — a literal can land in an ADR or
+      # a spec as easily as in code, and pattern C exists precisely because
+      # connection URLs get pasted into prose.  But a pull request that changes
+      # nothing except prose cannot change the build's outcome.
+      #
+      # This is deliberately a step-level skip rather than
+      # `on.pull_request.paths-ignore`: paths-ignore suppresses the whole run,
+      # which would take the credential scan down with it, and would leave a
+      # required status check pending forever if branch protection is ever
+      # enabled here.
+      # -----------------------------------------------------------------------
+      - name: Determine whether the Maven build needs to run
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Scheduled and manual runs check main's health — always build.
+          if [[ "$EVENT_NAME" != "pull_request" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "Non-pull-request event ($EVENT_NAME) — building."
+            exit 0
+          fi
+
+          # The REST pulls/{n}/files entries carry the path in `filename`;
+          # there is no `path` field on this endpoint.
+          #
+          # The exit status is checked explicitly rather than swallowed: on
+          # failure `gh` prints its error body to stdout, which would otherwise
+          # flow on as if it were a file list.  Every failure path below ends in
+          # build=true — a broken lookup must never be able to skip the build.
+          if ! FILES_RAW=$(gh api --paginate \
+                "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[].filename'); then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Could not list the pull request's changed files —" \
+                 "building instead of skipping."
+            exit 0
+          fi
+
+          mapfile -t FILES <<< "$FILES_RAW"
+
+          # An empty list means the API told us nothing useful; build rather
+          # than skip, so a lookup failure can never silence the build.
+          if [[ ${#FILES[@]} -eq 0 ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "Could not determine changed files — building."
+            exit 0
+          fi
+
+          for f in "${FILES[@]}"; do
+            # A blank entry means the query returned a field that does not
+            # exist.  Build, and say so loudly: silently treating it as
+            # "not docs" would still build, but the skip would be dead code
+            # nobody notices.
+            if [[ -z "$f" ]]; then
+              echo "build=true" >> "$GITHUB_OUTPUT"
+              echo "::warning::Changed-file query returned a blank path — the" \
+                   "jq field name is probably wrong.  Building to stay safe."
+              exit 0
+            fi
+            case "$f" in
+              docs/*|*.md|LICENSE|.github/ISSUE_TEMPLATE/*)
+                ;;
+              *)
+                echo "build=true" >> "$GITHUB_OUTPUT"
+                echo "Build-relevant file changed: $f"
+                exit 0
+                ;;
+            esac
+          done
+
+          echo "build=false" >> "$GITHUB_OUTPUT"
+          echo "Docs-only pull request (${#FILES[@]} file(s)) — skipping the Maven build."
+          printf '  %s\n' "${FILES[@]}"
+
+      - name: Set up Java 25
+        if: steps.scope.outputs.build == 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Verify Docker availability
+        if: steps.scope.outputs.build == 'true'
+        run: docker info
+
+      # -----------------------------------------------------------------------
+      # Self-test: verify the skipped-test guard catches a skip before trusting
+      # it.  Plants a report that claims one skipped test and runs the guard's
+      # own execution against it.  Fails the job if the guard passes, which
+      # would mean a silently skipped suite could once again reach BUILD
+      # SUCCESS — the hole ADR-006 forbids.  The planted report is removed by
+      # the `clean` in the Maven step that follows.
+      # -----------------------------------------------------------------------
+      - name: Self-test — skipped-test guard must reject a planted skip
+        if: steps.scope.outputs.build == 'true'
+        run: |
+          REPORT="core/target/failsafe-reports/TEST-GuardSelfTest.xml"
+          mkdir -p "$(dirname "$REPORT")"
+          cat > "$REPORT" <<'XML'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <testsuite name="GuardSelfTest" tests="1" skipped="1" failures="0" errors="0"/>
+          XML
+
+          if mvn --batch-mode --no-transfer-progress -pl core \
+               antrun:run@fail-on-skipped-tests > guard-selftest.log 2>&1; then
+            echo "::error::Self-test FAILED: the guard accepted a report claiming a skipped test."
+            cat guard-selftest.log
+            exit 1
+          fi
+
+          if ! grep -q "TEST-GuardSelfTest.xml" guard-selftest.log; then
+            echo "::error::Self-test FAILED: the guard failed, but did not name the offending report."
+            cat guard-selftest.log
+            exit 1
+          fi
+
+          rm -f "$REPORT" guard-selftest.log
+          echo "Self-test passed — the guard rejected the planted skip and named the report."
+
+      - name: Maven verify
+        if: steps.scope.outputs.build == 'true'
+        run: mvn --batch-mode --no-transfer-progress clean verify
+
+      # -----------------------------------------------------------------------
+      # Frontend build, test, and accessibility checks (ADR-017, ADR-014).
+      #
+      # The SPA is a standalone npm project, so Maven neither builds nor tests
+      # it.  These steps run inside this job, not a separate one, for the same
+      # per-job billing reason as the credential scan.
+      # -----------------------------------------------------------------------
+      - name: Set up Node 20
+        if: steps.scope.outputs.build == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: portal/web/package-lock.json
+
+      - name: Frontend — install dependencies
+        if: steps.scope.outputs.build == 'true'
+        working-directory: portal/web
+        run: npm ci
+
+      # `test:coverage`, not `test`.  Vitest evaluates the coverage thresholds in
+      # vite.config.ts only when --coverage is passed, so `npm test` would run
+      # the same suite and hold no floor (ADR-019).
+      - name: Frontend — unit tests and coverage floor (Vitest)
+        if: steps.scope.outputs.build == 'true'
+        working-directory: portal/web
+        run: npm run test:coverage
+
+      - name: Frontend — build (Vite)
+        if: steps.scope.outputs.build == 'true'
+        working-directory: portal/web
+        run: |
+          # --short=7, not bare --short (core.abbrev=auto grows with the object
+          # count and drifts from the fixed length the Java artifacts use).
+          VITE_GIT_COMMIT=$(git rev-parse --short=7 HEAD) \
+          VITE_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+          npm run build
+
+      - name: Frontend — install Playwright Chromium
+        if: steps.scope.outputs.build == 'true'
+        working-directory: portal/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Frontend — accessibility tests (Playwright)
+        if: steps.scope.outputs.build == 'true'
+        working-directory: portal/web
+        run: npm run test:a11y
+
+      # Traces and screenshots are only written for failures, so this uploads
+      # exactly the artifacts someone needs to diagnose an accessibility
+      # regression they cannot reproduce locally.
+      - name: Upload the Playwright report
+        if: failure() && steps.scope.outputs.build == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            portal/web/playwright-report/
+            portal/web/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      # -----------------------------------------------------------------------
+      # Journey suite — real-service browser acceptance (ADR-014).
+      #
+      # Not on every pull request: booting the whole stack costs more than the
+      # signal it adds on each change, and the nightly run catches the same
+      # regression within a day.  `mvn clean verify` remains the acceptance
+      # command.
+      #
+      # A step-level guard rather than paths-ignore: paths-ignore suppresses
+      # the whole run, which would take the credential scan above down with it.
+      # -----------------------------------------------------------------------
+      - name: Journey — run the real-service suite
+        if: github.event_name != 'pull_request' && steps.scope.outputs.build == 'true'
+        env:
+          # Synthetic password for the throwaway CI Postgres container, used
+          # only by this workflow run; not an operational credential.  The dev
+          # token is generated by run-local.sh on every run.
+          APP_DB_PASSWORD: ci-journey-pass
+        run: infra/scripts/e2e.sh --no-build
+
+      # -----------------------------------------------------------------------
+      # Scan the HTML report for literal credentials before retaining it, as the
+      # main scan above does for the committed tree.
+      #
+      # Playwright HTML reports are text (HTML, JSON); traces and screenshots are
+      # binary archives and images.  The scan targets text files only — binary
+      # content cannot carry credential patterns the grep recognises, and the
+      # stack uses synthetic data (ADR-014) so traces cannot carry real data.
+      # -----------------------------------------------------------------------
+      - name: Journey — scan report for credentials before upload
+        if: failure() && github.event_name != 'pull_request' && steps.scope.outputs.build == 'true'
+        run: |
+          PAT_A='[A-Za-z_]*[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd][A-Za-z_]*=[^$[:space:]][^[:space:]]*'
+          PAT_A2='[A-Za-z_]*[Pp][Aa][Ss][Ss][Ww][Dd][A-Za-z_]*=[^$[:space:]][^[:space:]]*'
+          PAT_B='[Pp]assword[[:space:]]*:[[:space:]]*[^$[:space:]][^[:space:]]*'
+          PAT_BPASWD='[Pp]asswd[[:space:]]*:[[:space:]]*[^$[:space:]][^[:space:]]*'
+          PAT_B_PWD='pwd[[:space:]]*:[[:space:]]*[^$[:space:]][^[:space:]]*'
+          PAT_B2='"[Pp]assword"[[:space:]]*:[[:space:]]*"[^"$]'
+          PAT_C_URL='://[^:@[:space:]/]+:[^@[:space:]/\$\{][^@[:space:]]*@[a-zA-Z0-9]'
+          PAT_C_QS='[?&][Pp]assword=[^&[:space:]\$\{][^&[:space:]]*'
+
+          REPORT_DIR="portal/web/playwright-report"
+          if [[ ! -d "$REPORT_DIR" ]]; then
+            echo "No report directory — nothing to scan."
+            exit 0
+          fi
+
+          FOUND=$(grep -rEn \
+            -e "$PAT_A" -e "$PAT_A2" \
+            -e "$PAT_B" -e "$PAT_BPASWD" -e "$PAT_B_PWD" \
+            -e "$PAT_B2" -e "$PAT_C_URL" -e "$PAT_C_QS" \
+            --include="*.html" --include="*.json" \
+            "$REPORT_DIR" \
+            | grep -Ev '(=|:)[[:space:]]*["'"'"']?[$][{A-Za-z_]' \
+            | grep -Ev '="[[:space:]]*[+"]' \
+            | grep -Ev '=[[:space:]]*[^[:space:]]*\(' \
+            | grep -Ev '==[[:space:]]' \
+            | grep -Ev '=[[:space:]]*[a-z][a-zA-Z0-9_]*;' \
+            | grep -Ev ':[0-9]+:[[:space:]]*(#|//)' \
+            | grep -Ev '(=|:)[[:space:]]*["'"'"']["'"'"']' \
+            | grep -Ev ':[[:space:]]*(string|number|boolean)[;,)}[:space:]]*$' \
+            || true)
+
+          if [[ -n "$FOUND" ]]; then
+            echo "::error::Literal credential pattern found in the Playwright report."
+            echo "$FOUND"
+            exit 1
+          fi
+
+          echo "OK — no credential patterns in the Playwright report."
+
+      - name: Journey — upload report on failure
+        if: failure() && github.event_name != 'pull_request' && steps.scope.outputs.build == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: journey-report
+          path: |
+            portal/web/playwright-report/
+            portal/web/test-results/
+          retention-days: 7
+          if-no-files-found: ignore

@@ -1,0 +1,63 @@
+spring:
+  application:
+    name: app-portal
+  jackson:
+    default-property-inclusion: non_null
+    mapper:
+      sort-properties-alphabetically: false
+  autoconfigure:
+    # No form login and no in-memory user: the chain is always one of the two in
+    # com.example.app.portal.security, so Boot's generated password would only be noise.
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+
+# Log levels (ADR-016); the format lives in logback-spring.xml.
+logging:
+  level:
+    root: ${APP_LOG_LEVEL:INFO}
+    com.example.app.portal: ${APP_LOG_LEVEL_PORTAL:INFO}
+
+server:
+  port: 8081
+  # Behind CloudFront or a load balancer, trust X-Forwarded-* so the OIDC
+  # redirect URI is built with the public scheme and host.
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        # The session cookie is the browser's only credential (ADR-010).
+        http-only: true
+        secure: ${APP_BFF_SECURE_COOKIES:true}
+        same-site: lax
+        path: /app
+      timeout: ${APP_BFF_SESSION_TIMEOUT:30m}
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
+
+app:
+  bff:
+    # Root URL of the application API; the proxy appends /api/v1/... to it.
+    api-base-url: ${APP_BFF_API_BASE_URL:http://localhost:8080}
+    # Browser-to-BFF contract version, emitted as X-Portal-Api-Version.
+    portal-api-version: 1
+    # Upstream connect/response timeout: an unreachable or hung API yields a
+    # prompt 503 rather than a hanging browser request.
+    request-timeout: 10s
+    auth:
+      # "oidc" (default): browser login with a server-side session.
+      # "dev": no login; every proxied call carries dev-token. Local only.
+      mode: ${APP_BFF_AUTH_MODE:oidc}
+      dev-token: ${APP_AUTH_DEV_TOKEN:}
+    oidc:
+      # Used only when auth.mode=oidc (ADR-010). The provider's endpoints are
+      # discovered from the issuer at startup, so it must be reachable then.
+      issuer-uri: ${APP_OIDC_ISSUER_URI:}
+      client-id: ${APP_OIDC_CLIENT_ID:}
+      client-secret: ${APP_OIDC_CLIENT_SECRET:}
+      scopes: ${APP_OIDC_SCOPES:openid,profile,email}
+      # The origin browsers use, e.g. https://app.example.com. Leave blank when
+      # the edge forwards the public host; set it behind CloudFront, which by
+      # default forwards the origin's host, or the callback URL is wrong.
+      public-base-url: ${APP_BFF_PUBLIC_BASE_URL:}

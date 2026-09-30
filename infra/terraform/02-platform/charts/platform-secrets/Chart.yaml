@@ -1,0 +1,13 @@
+apiVersion: v2
+name: platform-secrets
+description: |
+  ClusterSecretStore and ExternalSecret that pull the application's secrets
+  from SSM Parameter Store into a Kubernetes Secret.
+
+  This is a Helm chart rather than a set of `kubernetes_manifest` resources for
+  one reason: `kubernetes_manifest` resolves an object's schema from the API
+  server at plan time, so a manifest whose CRD is installed in the same apply
+  cannot be planned at all. Helm applies at apply time and has no such problem.
+type: application
+version: 0.1.0
+appVersion: "1"

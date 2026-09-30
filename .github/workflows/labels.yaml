@@ -1,0 +1,26 @@
+# Applies .github/labels.yml to the repository whenever it changes on main, so the
+# labels in use are the ones the file declares. Creation and update only: pruning
+# labels an issue may still carry is a deliberate, local
+# `infra/scripts/sync-labels.sh --prune`.
+name: Sync labels
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/labels.yml
+      - infra/scripts/sync-labels.sh
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sync labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: infra/scripts/sync-labels.sh --repo "${{ github.repository }}"

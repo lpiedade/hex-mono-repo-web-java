@@ -1,0 +1,254 @@
+openapi: 3.1.0
+info:
+  title: Portal BFF API
+  description: |
+    Browser-to-BFF contract, portalApiVersion 1. Versioned independently of
+    the application API's schemaVersion.
+
+    ## Nature
+
+    The BFF is a thin authenticated proxy (ADR-009). It strips `/app/bff/v1`,
+    forwards to the application API's `/api/v1`, and attaches the upstream
+    bearer token itself. It aggregates nothing and reshapes nothing, so every
+    proxied body is the application API's body, and this file references the
+    schemas in `openapi-v1.yaml` rather than duplicating them. Each proxied
+    operation names its upstream in `x-proxies-to`; `BffContractParityTest`
+    fails the build when that upstream is not declared in `openapi-v1.yaml`.
+
+    ## Browser authentication (ADR-010)
+
+    - `app.bff.auth.mode=oidc` (default): the BFF runs the OIDC authorization
+      code flow and keeps the tokens in a server-side session. The browser holds
+      only the session cookie. A proxied call without a session answers `401`
+      with code `SESSION_REQUIRED`; the SPA then navigates to
+      `/app/bff/oauth2/authorization/oidc` to log in. A `401` with the API's
+      own code `UNAUTHENTICATED` means the relayed token was refused; logging in
+      again would not fix it, so the SPA does not redirect on it. Mutating requests must
+      carry the `X-XSRF-TOKEN` header, copied from the `XSRF-TOKEN` cookie.
+    - `app.bff.auth.mode=dev`: no login. The BFF attaches a pre-shared dev token
+      to every proxied call. Local development only.
+
+    ## Envelope (every response)
+
+    - `X-Portal-Api-Version: 1`
+    - `X-Correlation-ID` — propagated from the request or generated.
+    - `503` with a BFF-generated Problem Details body when the application API
+      is unreachable.
+  version: "1.0.0"
+  x-portal-api-version: 1
+
+servers:
+  - url: /app
+    description: BFF base. Proxied routes live under /bff/v1; the SPA shares this origin.
+
+tags:
+  - name: Items
+  - name: System
+
+paths:
+  /bff/v1/items:
+    get:
+      tags: [Items]
+      summary: List items
+      operationId: bffListItems
+      x-proxies-to: GET /api/v1/items
+      responses:
+        "200":
+          description: The items.
+          headers:
+            X-Portal-Api-Version: { $ref: "#/components/headers/PortalApiVersion" }
+            X-Correlation-ID: { $ref: "#/components/headers/CorrelationId" }
+          content:
+            application/json:
+              schema: { $ref: "openapi-v1.yaml#/components/schemas/ItemList" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Bff503" }
+    post:
+      tags: [Items]
+      summary: Create an item
+      operationId: bffCreateItem
+      x-proxies-to: POST /api/v1/items
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "openapi-v1.yaml#/components/schemas/ItemRequest" }
+      responses:
+        "201":
+          description: The created item.
+          content:
+            application/json:
+              schema: { $ref: "openapi-v1.yaml#/components/schemas/Item" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Bff503" }
+
+  /bff/v1/items/{itemId}:
+    parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Items]
+      summary: Read an item
+      operationId: bffGetItem
+      x-proxies-to: GET /api/v1/items/{itemId}
+      responses:
+        "200":
+          description: The item.
+          content:
+            application/json:
+              schema: { $ref: "openapi-v1.yaml#/components/schemas/Item" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Bff503" }
+    put:
+      tags: [Items]
+      summary: Replace an item's editable fields
+      operationId: bffUpdateItem
+      x-proxies-to: PUT /api/v1/items/{itemId}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "openapi-v1.yaml#/components/schemas/ItemRequest" }
+      responses:
+        "200":
+          description: The updated item.
+          content:
+            application/json:
+              schema: { $ref: "openapi-v1.yaml#/components/schemas/Item" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Bff503" }
+    delete:
+      tags: [Items]
+      summary: Delete an item
+      operationId: bffDeleteItem
+      x-proxies-to: DELETE /api/v1/items/{itemId}
+      responses:
+        "204":
+          description: Deleted.
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Bff503" }
+
+  /bff/v1/user-context:
+    get:
+      tags: [System]
+      summary: The authenticated caller
+      operationId: bffGetUserContext
+      x-proxies-to: GET /api/v1/user-context
+      responses:
+        "200":
+          description: Subject and effective roles.
+          content:
+            application/json:
+              schema: { $ref: "openapi-v1.yaml#/components/schemas/UserContext" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Bff503" }
+
+  /bff/v1/about:
+    get:
+      tags: [System]
+      summary: Build coordinates of the deployed API
+      operationId: bffGetApiAbout
+      x-proxies-to: GET /api/v1/about
+      responses:
+        "200":
+          description: Version, commit and build time of the API.
+          content:
+            application/json:
+              schema: { $ref: "openapi-v1.yaml#/components/schemas/ApiBuildInfo" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Bff503" }
+
+  /bff/logout:
+    post:
+      tags: [System]
+      summary: End the browser session
+      operationId: bffLogout
+      description: Invalidates the server-side session. A no-op in dev mode.
+      responses:
+        "204":
+          description: Logged out.
+
+  /health:
+    get:
+      tags: [System]
+      summary: BFF liveness
+      operationId: bffHealth
+      security: []
+      description: Reports only that the BFF process serves requests; it does not probe the API.
+      responses:
+        "200":
+          description: The BFF is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [UP] }
+
+  /about:
+    get:
+      tags: [System]
+      summary: Build coordinates of the deployed BFF
+      operationId: bffAbout
+      security: []
+      responses:
+        "200":
+          description: Contract version and build coordinates.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BffAbout" }
+
+components:
+  headers:
+    PortalApiVersion:
+      description: Browser-to-BFF contract version.
+      schema: { type: integer, enum: [1] }
+    CorrelationId:
+      description: Request correlation id.
+      schema: { type: string }
+
+  responses:
+    Problem:
+      description: A Problem Details body, from the API or the BFF.
+      content:
+        application/problem+json:
+          schema: { $ref: "openapi-v1.yaml#/components/schemas/ProblemDetails" }
+    Bff503:
+      description: The application API is unreachable.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/BffProblem" }
+
+  schemas:
+    BffProblem:
+      type: object
+      required: [type, title, status, code, correlationId, portalApiVersion]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        code: { type: string, examples: [UPSTREAM_UNAVAILABLE, SESSION_REQUIRED] }
+        correlationId: { type: string }
+        portalApiVersion: { type: integer }
+
+    BffAbout:
+      type: object
+      required: [portalApiVersion, build]
+      properties:
+        portalApiVersion: { type: integer }
+        build: { $ref: "openapi-v1.yaml#/components/schemas/BuildCoordinates" }

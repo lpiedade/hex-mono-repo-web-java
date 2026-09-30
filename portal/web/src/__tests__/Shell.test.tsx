@@ -1,0 +1,45 @@
+import { screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import "../i18n";
+import { Shell } from "../layout/Shell";
+import { renderWithProviders, t, tRe } from "./test-utils";
+
+vi.mock("../api/client", () => ({
+  getUserContext: vi.fn().mockResolvedValue({ schemaVersion: 1, subject: "dev", roles: [] }),
+  logout: vi.fn(),
+}));
+
+function renderShell() {
+  return renderWithProviders(<Shell colorMode="light" onToggleColorMode={() => undefined} />);
+}
+
+describe("Shell", () => {
+  it("renders the skip link, the navigation, the top bar and the main region", () => {
+    renderShell();
+    expect(screen.getByText(tRe("app.skipToContent"))).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: t("nav.label") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("theme.toggleDark") })).toBeInTheDocument();
+    expect(screen.getByRole("main")).toBeInTheDocument();
+  });
+
+  it("makes the skip target focusable, so the skip link actually skips", () => {
+    // Following a fragment link scrolls to the target but only moves focus there
+    // if the target is focusable. Without tabindex the link is decorative: focus
+    // stays put and the next Tab re-enters the navigation.
+    renderShell();
+
+    const skip = screen.getByText(tRe("app.skipToContent"));
+    expect(skip).toHaveAttribute("href", "#main-content");
+    expect(document.getElementById("main-content")).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("reveals the skip link while it has focus, and hides it again after", () => {
+    renderShell();
+    const skip = screen.getByText(tRe("app.skipToContent"));
+
+    skip.focus();
+    expect(skip.style.position).toBe("static");
+    skip.blur();
+    expect(skip.style.position).toBe("absolute");
+  });
+});

@@ -1,0 +1,171 @@
+# Portal (BFF + SPA) development guidance
+
+Scope: the `portal` module — the Spring Boot BFF under `portal/bff/` and the
+React/TypeScript SPA under `portal/web/`. These rules are in addition to the
+repository root `CLAUDE.md`. What the portal is and how a request travels is in
+[`README.md`](README.md).
+
+## The BFF stays thin
+
+The BFF (packages `com.example.app.portal`) authenticates and proxies. It does
+not serve the SPA — that is static assets behind CloudFront or the Vite proxy
+(ADR-017) — and it does not aggregate, reshape or validate — the API is the authority
+for every rule (ADR-009). A proxied body is the API's body, which is why
+`portal-api-v1.yaml` references `openapi-v1.yaml`'s schemas instead of copying
+them; an endpoint the browser needs that the API does not have belongs in the
+API first.
+
+Authentication is chosen by `app.bff.auth.mode` — `oidc` (server-side session,
+the browser holds only a cookie) or `dev` (a pre-shared token, local only) —
+and the SPA must work unchanged under both (ADR-010). It does so by reacting to
+what the BFF answers, never by asking which mode it runs in: a `401` with the
+BFF's code `SESSION_REQUIRED` navigates to `/app/bff/oauth2/authorization/oidc`
+(the API's own `UNAUTHENTICATED` does not — logging in again would not fix a
+refused relayed token, and redirecting on it would loop), and every
+mutating request carries `X-XSRF-TOKEN` from the `XSRF-TOKEN` cookie when one
+exists. Both live in `web/src/api/auth.ts`; a new call made outside
+`api/client.ts` would bypass them, so do not make one.
+
+The BFF owns `bff`, `about` and `health` under `/app`. No SPA route may start
+with one of those segments — a reload would get the BFF's JSON instead of the
+page. `apiContract.test.ts` checks the navigation against the contract.
+
+## Contracts and remote state
+
+The SPA's types are generated from
+[`portal-api-v1.yaml`](../docs/arch/api-layer/portal-api-v1.yaml) by
+`npm run generate:api`, and every call goes through the typed client in
+`web/src/api/client.ts` (ADR-012). `apiContract.test.ts` fails when the client
+calls a route the contract does not declare; `tsc` fails when a screen reads a
+field the contract no longer has. Change the contract first, regenerate, then
+follow the compiler.
+
+Remote state is React Query's. A write invalidates the queries it affects and
+lets them re-read; nothing is written into the cache by hand unless a screen
+has a measured reason to.
+
+### No failure is silent
+
+A request failure is either rendered by the screen or reported by the global
+net in `web/src/api/errorReporting.ts` — never neither.
+
+- A **query** failure is the screen's to render, as its page state
+  (`pageStateOf`) and usually an `ApiErrorBanner`. The net only logs it.
+- A **mutation** failure is shown by the global snackbar unless the screen
+  renders it itself, in which case the mutation declares
+  `meta: REPORTED_INLINE`. `errorReportingInventory.test.ts` pins the
+  mutations left to the net, so adding one is a decision, not a default.
+- An error on screen carries the stable `code` and the `correlationId`, never a
+  stack or an internal URL. A transport failure shows the generic
+  "portal unreachable" message; the BFF's `503 UPSTREAM_UNAVAILABLE` shows
+  "service unavailable, try again".
+
+## Accessibility is WCAG 2.2 AA (ADR-013)
+
+The theme's color pairs are asserted in both modes by
+`web/src/__tests__/theme.test.ts`, and the `a11y` Playwright project runs axe
+over every route in both themes, at 320px, and under reduced motion. A new
+route goes into `e2e/portal.a11y.spec.ts`'s `ROUTES`; a state the sweep cannot
+reach without data (an open dialog, an inline error) gets a test of its own.
+
+Composed primitives carry the semantics so screens do not have to: one `h1`
+per page through `PageHeader`, named regions through `SectionCard`, captioned
+tables with `aria-sort` through `DataTable`, live regions through `Banner`.
+Never convey state by color alone, and never render API content as markup.
+
+## Code is in English (en-US)
+
+All source code is written in English: component, function, variable, type and
+constant names; file and folder names; **URL route path segments** (`/items`,
+not `/itens`); **i18n keys** and their namespaces (`nav.items`, not
+`nav.itens`); comments and commit messages.
+
+Only user-facing strings are exempt — and those are never hardcoded.
+
+## User-facing text is localized, never hardcoded
+
+Any text a user can read goes through i18n (`react-i18next`); it never appears
+as a string literal in a component. Bundles live in
+`web/src/locales/<locale>.json`, and every key must exist in each:
+
+- `en-US` — English (the default)
+- `pt-BR` — Portuguese (Brazil)
+
+Add a key to every bundle in the same change; `locales.test.ts` fails
+otherwise. Keys and route segments are identifiers, not copy: keep them stable
+and never translate them per locale. A missing key is logged in development
+(`reportMissingKey` in `i18n.ts`) and renders as its own name.
+
+To add a locale: a new bundle, an entry in `SUPPORTED_LOCALES` and in
+`resources` (`i18n.ts`), its autonym in `LanguageSelector`, and the locale in
+`e2e/i18n.ts` and in the two bundle-scanning tests.
+
+### The `en-US` bundle is American English
+
+`en-US` copy uses American spelling — **catalog**, **center**, **canceled**,
+**analyze**, **behavior**, **color**, **artifact**. This governs rendered
+values only: an existing key keeps its spelling, and a contract enum key is the
+wire's (`identity.role.ADMIN`), with only its label translated.
+
+### A test asserts the key, not the translation
+
+A test may not quote product copy. It names the key and lets i18next resolve
+it — `t` / `tRe` / `tReExact` / `tPattern` from
+[`web/src/__tests__/test-utils.tsx`](web/src/__tests__/test-utils.tsx) in the
+component suite, `t` / `tAny` / `tAnyExact` from [`web/e2e/i18n.ts`](web/e2e/i18n.ts)
+in the Playwright suites.
+
+```tsx
+// no
+expect(screen.getByRole("link", { name: "Itens" })).toBeInTheDocument();
+// yes
+expect(screen.getByRole("link", { name: t("nav.items") })).toBeInTheDocument();
+```
+
+Otherwise a bundle edit becomes a source edit: rewording a label turns into a
+red suite in files the change never touched, and the whole suite is pinned to
+`DEFAULT_LOCALE`. It is enforced by
+[`testsAssertKeys.test.ts`](web/src/__tests__/testsAssertKeys.test.ts), which
+scans both suites and names the key to use in its failure. Its blind spots are
+written down in that file; a **fragment** (`/iten/i`) is the same coupling with
+a smaller quote and is the reviewer's to refuse.
+
+- Interpolation and locale stay in the test: `t("items.edit", { name })`,
+  `t("nav.items", { lng: "pt-BR" })`.
+- Copy a test supplies itself is not copy: a presentational primitive
+  localizes nothing, so its test passes a literal and asserts it back. Pick a
+  literal no bundle holds.
+- A key the bundles do not resolve **throws** in `t()`, rather than letting an
+  assertion compare a key against itself and pass.
+
+## Who sorts a list is decided by who holds it
+
+A screen that fetched its collection **whole** — no `limit`, no cursor, no
+`page`/`rowCount`/`onPageChange` on `DataTable` — sorts it in memory through
+[`useClientSort`](web/src/components/useClientSort.ts) and issues no request.
+A screen that **pages through the backend** sends the sort with its next
+request and never reorders the rows it holds. `ItemsPage` is the worked example
+of the first kind.
+
+"Few rows" is not the criterion: sorting one page of a paged list reorders a
+window while looking exactly as if it reordered the list. `DataTable` itself
+never sorts; it renders the order it is given and reports the clicked column.
+
+## Validation
+
+- BFF: `mvn clean verify` at the repository root.
+- SPA: the frontend is a standalone npm project, not driven by Maven. From
+  `portal/web/`, run `npm ci && npm run test:coverage && npm run build` before
+  committing, and `npm run test:a11y` when a screen changes.
+
+**`test:coverage`, not `test`.** Both run the same suite, but Vitest evaluates
+the coverage floor in `vite.config.ts` only when `--coverage` is passed, and
+`pretest:coverage` is what runs the typechecker. The floor is a ratchet — the
+last recorded measurement, truncated, and no higher (ADR-019) —
+and [`docs/performance/coverage-ratchet.md`](../docs/performance/coverage-ratchet.md)
+is how to move it.
+
+**Browser suites.** `a11y` needs only the production build (`vite preview`).
+`journey` drives a real stack and **fails** when `E2E_BASE_URL` is unset
+rather than skipping, because a check that silently did not run is reported as
+one that passed (ADR-014).

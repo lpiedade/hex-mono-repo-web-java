@@ -1,0 +1,15 @@
+project     = "app"
+environment = "dev"
+region      = "us-east-1"
+
+# Null derives "<project>-<environment>-tfstate-<account-id>".
+# state_bucket_name = null
+
+# Set false only in an account that enforces Block Public Access centrally and
+# denies s3:PutBucketPublicAccessBlock - see the variable's description.
+# manage_public_access_block = true
+
+# extra_tags = {
+#   CostCenter = "..."
+#   Owner      = "..."
+# }

@@ -1,0 +1,4 @@
+# Copy to backend.hcl (git-ignored) and fill in from 00-bootstrap's
+# `backend_hcl` output, then: terraform init -backend-config=backend.hcl
+bucket = "app-dev-tfstate-123456789012"
+region = "us-east-1"

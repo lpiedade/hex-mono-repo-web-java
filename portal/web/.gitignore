@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+*.local
+.vite/
+
+# Generated from the contract by `npm run generate:api`.
+src/api/portal-api.d.ts
+
+# Playwright output: traces, screenshots and the HTML report. These are run
+# artifacts — CI uploads them, the repository does not carry them.
+test-results/
+playwright-report/
+blob-report/
+.playwright/

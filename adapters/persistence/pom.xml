@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.example.app</groupId>
+        <artifactId>app-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>adapter-persistence</artifactId>
+    <name>App :: Persistence Adapter</name>
+    <description>
+        Operational persistence (ADR-008): the core repository ports implemented
+        with Spring JDBC (JdbcClient) over explicit SQL, plus the Flyway-owned
+        schema for the operational database. No JPA/Hibernate and no runtime
+        schema generation. Spring Boot wiring is the composition root's job
+        (ADR-007); this module carries none.
+    </description>
+
+    <properties>
+        <!-- Coverage floors: docs/performance/coverage-ratchet.md -->
+        <coverage.floor.instruction>0.9447</coverage.floor.instruction>
+        <coverage.floor.branch>1.0000</coverage.floor.branch>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.example.app</groupId>
+            <artifactId>core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!--
+            Spring JDBC brings JdbcClient and the TransactionTemplate behind the
+            UnitOfWork adapter. It is a Spring Framework module (not Spring Boot),
+            so it pulls in no autoconfiguration; its version is managed by the
+            spring-boot-dependencies BOM imported in the parent.
+        -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-jdbc</artifactId>
+        </dependency>
+        <!--
+            Flyway is configured in code (OperationalSchema) so a composition root
+            that is not Spring Boot and this module's own integration tests share
+            one definition with apps/api.
+        -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- PostgreSQL-specific Flyway support, needed only when a migration actually runs. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

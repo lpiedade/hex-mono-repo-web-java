@@ -1,0 +1,51 @@
+# --- Maven / Java ---
+target/
+dependency-reduced-pom.xml
+*.class
+hs_err_pid*.log
+replay_pid*.log
+
+# --- Node / Vite (portal/web) ---
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+*.tsbuildinfo
+.vite/
+npm-debug.log*
+# Generated from the OpenAPI contract by `npm run generate:api`.
+portal/web/src/api/portal-api.d.ts
+
+# --- Terraform (see also infra/terraform/.gitignore) ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+
+# --- Local runtime state ---
+# PIDs, logs and the per-run dev token written by infra/scripts/run-local.sh.
+.run/
+*.log
+
+# Local credentials. Never committed; .env.example documents the names.
+.env
+.env.*
+!.env.example
+
+# --- IDEs and editors ---
+.idea/
+*.iml
+.vscode/
+*.swp
+*~
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Tooling ---
+.claude/
+graphify-out/

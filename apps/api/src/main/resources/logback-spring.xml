@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Log format for the application API (ADR-016).
+
+    The reason this file exists is %X{correlationId}. CorrelationIdFilter binds the
+    per-request id into the MDC on every request; without a pattern that prints it, the
+    id would reach the response header and the Problem Details body and never a log
+    line, and a client could not tie an error to server-side logs. LogPatternTest
+    guards it.
+
+    Deliberately self-contained: it includes none of Spring Boot's logback defaults, so
+    the format does not move when Boot does. Colour escapes are omitted because these
+    logs are read from an aggregator far more often than from a terminal.
+
+    Everything routes to stdout. A container runtime collects it; nothing writes files.
+-->
+<configuration>
+
+    <springProperty scope="context" name="applicationName" source="spring.application.name"
+                    defaultValue="app-api"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!--
+                correlationId falls back to "-" rather than an empty string, so a line
+                emitted outside any request (startup, a scheduled task) still has the
+                field and stays parseable by column. logback appends a stack trace
+                automatically when one is present.
+            -->
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSS, UTC} %-5level [${applicationName:-}] [%X{correlationId:--}] [%thread] %logger{40} : %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>

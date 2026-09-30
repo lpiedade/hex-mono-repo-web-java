@@ -1,0 +1,55 @@
+# The repository's labels — the single source of truth. Applied by
+# infra/scripts/sync-labels.sh, and on every push to main that changes this file
+# by .github/workflows/labels.yaml. The axes are independent and may coexist on
+# one issue; the rules for each are in CLAUDE.md ("Implementation issue
+# conventions").
+#
+# Keep this flat format — one "- name:" block of three keys per label — because
+# the sync script reads it without a YAML library.
+#
+# There is deliberately no `wont` / `wontfix` label: a Won't-tier feature gets no
+# issue at all. `sync-labels.sh --prune` deletes GitHub's default `wontfix`
+# along with every other label not declared here.
+
+# Area — where the work lands.
+- name: backend
+  color: "1d76db"
+  description: "Area: API, core, adapters, persistence"
+- name: frontend
+  color: "5319e7"
+  description: "Area: React SPA and BFF-facing frontend work"
+- name: infra
+  color: "0e8a16"
+  description: "Area: build, CI, nightly lanes, ArchUnit, coverage, deployment"
+
+# Priority — product-absolute, from the feature register's Tier. Exactly one per
+# implementation issue; never derived from an estimate or a schedule.
+- name: must
+  color: "b60205"
+  description: "Priority: Must-tier feature (feature register)"
+- name: should
+  color: "d93f0b"
+  description: "Priority: Should-tier feature (feature register)"
+- name: could
+  color: "fbca04"
+  description: "Priority: Could-tier feature (feature register)"
+
+# Granularity.
+- name: epic
+  color: "3e4b9e"
+  description: "Coarse deliverable worked through its Decomposition checklist"
+
+# Readiness — set by a human.
+- name: ready-for-agent
+  color: "c2e0c6"
+  description: "Spec complete enough to implement, independent of dependencies"
+
+# Dependency state — owned by .github/workflows/issue-blocked-labels.yaml.
+- name: blocked
+  color: "000000"
+  description: "Automatic: an issue under Blocked by is still open. Never set by hand"
+
+# Type.
+- name: bug
+  color: "d73a4a"
+  description: "Behaviour differs from its spec, contract or ADR"

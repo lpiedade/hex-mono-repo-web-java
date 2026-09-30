@@ -1,0 +1,26 @@
+# 00-bootstrap's `state_bucket` output - the bucket backend.hcl names.
+state_bucket = "app-dev-tfstate-123456789012"
+# region     = "us-east-1"
+
+# Git sha printed by infra/scripts/build-and-push.sh. Required - there is no
+# default, so a deploy always names the build it deploys.
+image_tag = "0000000"
+
+# The identity provider. The BFF logs users in against it and the API
+# validates its tokens. The client id and secret are NOT here: write them to
+# SSM (see infra/terraform/README.md).
+oidc_issuer_uri = "https://idp.example.com/realms/app"
+# roles_claim   = "roles"
+
+# Narrow these before the environment holds anything real. Narrow both or
+# neither: they are separate WAF IP sets, one per address family.
+# allowed_cidrs    = ["203.0.113.0/24"]
+# allowed_cidrs_v6 = ["2001:db8::/32"]
+
+namespace = "app"
+
+api_replicas = 2
+# One until the BFF's sessions are shared (ADR-010) - see the variable.
+bff_replicas = 1
+
+# log_level = "INFO"

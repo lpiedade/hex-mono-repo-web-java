@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.example.app</groupId>
+        <artifactId>app-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>portal</artifactId>
+    <name>App :: Portal BFF</name>
+    <description>
+        The portal's Spring Boot backend-for-frontend (ADR-009): a thin
+        authenticated proxy from /app/bff/v1 to the application API's /api/v1. It
+        owns the browser session and CSRF (ADR-010) and attaches the upstream
+        bearer token server-side. It does NOT depend on core: the API remains the
+        authority for all logic. The React SPA under web/ is a standalone npm
+        project that Maven does not build.
+    </description>
+
+    <properties>
+        <!-- Coverage floors for the BFF only; the SPA's live in web/vite.config.ts. -->
+        <coverage.floor.instruction>0.9708</coverage.floor.instruction>
+        <coverage.floor.branch>0.7777</coverage.floor.branch>
+        <!-- Spring Boot 4's test framework is built on JUnit 6 (as in apps/api). -->
+        <junit.version>6.0.3</junit.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- OIDC login, server-side session and CSRF for app.bff.auth.mode=oidc (ADR-010). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-oauth2-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!--
+            Test-only: the real-service BFF *IT (ADR-014) boots the real application
+            API in-process and drives the BFF in front of it. This keeps core off the
+            BFF's shipped classpath while still proving the proxy against the real
+            service, not a mock.
+        -->
+        <dependency>
+            <groupId>com.example.app</groupId>
+            <artifactId>api</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <!--
+            The Java sources live under bff/ so the module root separates the two
+            halves of the portal: bff/ (Spring Boot) and web/ (React SPA).
+        -->
+        <sourceDirectory>${project.basedir}/bff/src/main/java</sourceDirectory>
+        <testSourceDirectory>${project.basedir}/bff/src/test/java</testSourceDirectory>
+        <resources>
+            <resource>
+                <directory>${project.basedir}/bff/src/main/resources</directory>
+            </resource>
+        </resources>
+        <testResources>
+            <testResource>
+                <directory>${project.basedir}/bff/src/test/resources</directory>
+            </testResource>
+        </testResources>
+        <plugins>
+            <!--
+                ADR-009: the BFF must not declare a dependency on core; it calls the
+                API over HTTP. Non-transitive because core legitimately reaches the
+                *test* classpath through the test-scoped api dependency.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>ban-core-dependency</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <message>
+                                        The portal BFF must not depend on core (ADR-009). core may
+                                        appear only transitively on the test classpath via the
+                                        test-scoped api dependency.
+                                    </message>
+                                    <searchTransitive>false</searchTransitive>
+                                    <excludes>
+                                        <exclude>com.example.app:core</exclude>
+                                        <exclude>com.example.app:adapter-persistence</exclude>
+                                        <exclude>com.example.app:adapter-jvm</exclude>
+                                    </excludes>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>build-info</goal>
+                            <goal>repackage</goal>
+                        </goals>
+                        <configuration>
+                            <classifier>exec</classifier>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- git.properties for /app/about; see the same configuration in apps/api. -->
+            <plugin>
+                <groupId>io.github.git-commit-id</groupId>
+                <artifactId>git-commit-id-maven-plugin</artifactId>
+                <version>9.0.1</version>
+                <executions>
+                    <execution>
+                        <id>get-git-info</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>revision</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <generateGitPropertiesFile>true</generateGitPropertiesFile>
+                    <generateGitPropertiesFilename>
+                        ${project.build.outputDirectory}/git.properties
+                    </generateGitPropertiesFilename>
+                    <abbrevLength>7</abbrevLength>
+                    <failOnNoGitDirectory>false</failOnNoGitDirectory>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

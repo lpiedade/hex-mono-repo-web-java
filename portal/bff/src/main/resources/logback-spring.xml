@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Log format for the portal BFF (ADR-016). Same pattern as the API's: the same
+    correlation id crosses both processes, and a shared field is what lets one query
+    join a BFF line to the API line it provoked.
+-->
+<configuration>
+
+    <springProperty scope="context" name="applicationName" source="spring.application.name"
+                    defaultValue="app-portal"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSS, UTC} %-5level [${applicationName:-}] [%X{correlationId:--}] [%thread] %logger{40} : %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>

@@ -1,0 +1,82 @@
+name: Arch (code review)
+
+# The nightly ring report (ADR-015).
+#
+# This is an instrument, not a gate. It never runs on a pull request and never
+# blocks a merge: `mvn clean verify` excludes the rules, and only `-Parchitecture`
+# includes them. A red run here means a ring leaked since the last run.
+#
+# The run is kept to `-pl core`, the only module the rules examine, rather than
+# a reactor build: GitHub bills each job by the minute.
+#
+# 03:30 UTC deliberately: `build.yaml`'s scheduled main check runs at 03:00 and
+# `issue-blocked-labels.yaml` at 06:17, and GitHub advises against the top of the
+# hour, where scheduled runs queue behind everyone else's.
+
+on:
+  schedule:
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+
+run-name: >-
+  ${{ github.event_name == 'workflow_dispatch' && 'Manual architecture report' ||
+      'Nightly architecture report' }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  report:
+    name: Report on core's rings
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      # The freeze store is committed, and allowStoreCreation stays at its false
+      # default, so this run can only ever *read* a baseline someone reviewed. It
+      # cannot mint one, and it fails on any violation the store does not hold.
+      - name: Run the ring rules
+        run: >-
+          mvn --batch-mode --no-transfer-progress
+          -Parchitecture -pl core test
+
+      # Both publish steps run even when the rules step failed — that is the case
+      # where the report is worth reading (ADR-015 asks for the run page and a
+      # downloadable copy).
+      - name: Publish the report to the run page
+        if: always()
+        run: |
+          if [ -f core/target/architecture-report.md ]; then
+            cat core/target/architecture-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## Architecture report — core's rings (ADR-015)"
+              echo
+              echo "No report was produced: the run failed before the rules were"
+              echo "evaluated. Check the \`Run the ring rules\` step — this is a"
+              echo "build or toolchain failure, not an architecture finding."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: architecture-report
+          path: core/target/architecture-report.md
+          if-no-files-found: warn
+          retention-days: 30

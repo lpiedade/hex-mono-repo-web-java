@@ -1,0 +1,153 @@
+name: Sync blocked labels
+
+# Keeps the `blocked` label in sync with each issue's "Blocked by" section.
+#
+# `blocked` is a purely derived, machine-managed label: an issue carries it iff
+# at least one issue referenced under its "Blocked by" heading is still open. It
+# is orthogonal to `ready-for-agent` (spec readiness, set by humans) — see the
+# "Implementation issue conventions" section of CLAUDE.md.
+#
+# NOTE: this workflow needs write access to issues. The `permissions:` block
+# below only takes effect if the repository/org allows workflows to obtain write
+# scopes (Settings -> Actions -> General -> Workflow permissions -> "Read and
+# write permissions"). With the default read-only token it is capped to read and
+# label edits will 403.
+
+on:
+  issues:
+    types: [opened, edited, reopened, closed]
+  workflow_dispatch: {}
+  schedule:
+    # Daily safety net that re-derives every open issue's label from its body,
+    # covering any event the triggers above missed.
+    - cron: "17 6 * * *"
+
+permissions:
+  contents: read
+  issues: write
+
+# Successive edits to the same issue collapse onto the newest one.  Each run is
+# billed a whole minute even though it does ~10s of work, and editing an issue
+# body several times in a row is the normal way these issues get written, so the
+# queued runs were the single largest source of wasted Actions minutes after the
+# build itself.  Cancelling is also *more* correct than queueing: the surviving
+# run re-derives the label from the newest body, which is the state we want.
+#
+# The group key is the issue number for `issues` events and the unique run id
+# otherwise, so a scheduled or manual full sweep is never cancelled by an edit
+# and never cancels one.
+concurrency:
+  group: blocked-labels-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync the `blocked` label
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const BLOCKED = 'blocked';
+
+            // Collect every `#NN` under the issue's "Blocked by" heading.
+            // Accepts an ATX heading (`## Blocked by`) or a bold line
+            // (`**Blocked by**`); stops at the next heading/bold section.
+            function blockerNumbers(body) {
+              if (!body) return [];
+              const lines = body.split(/\r?\n/);
+              const isBlockedByHeading = (l) =>
+                /^\s*#{1,6}\s+blocked by\b/i.test(l) ||
+                /^\s*\*\*blocked by\*\*\s*$/i.test(l);
+              const isSectionBreak = (l) =>
+                /^\s*#{1,6}\s+\S/.test(l) || /^\s*\*\*[^*]+\*\*\s*$/.test(l);
+
+              let i = 0;
+              for (; i < lines.length; i++) if (isBlockedByHeading(lines[i])) break;
+              if (i >= lines.length) return [];
+
+              const nums = new Set();
+              for (let j = i + 1; j < lines.length; j++) {
+                const l = lines[j];
+                if (isBlockedByHeading(l) || isSectionBreak(l)) break;
+                const re = /#(\d+)/g;
+                let m;
+                while ((m = re.exec(l)) !== null) nums.add(parseInt(m[1], 10));
+              }
+              return [...nums];
+            }
+
+            const stateCache = new Map();
+            async function isOpen(owner, repo, number) {
+              if (stateCache.has(number)) return stateCache.get(number);
+              let open;
+              try {
+                const { data } = await github.rest.issues.get({
+                  owner, repo, issue_number: number,
+                });
+                open = data.state === 'open';
+              } catch (e) {
+                // A missing reference cannot block anything.
+                if (e.status === 404) open = false;
+                else throw e;
+              }
+              stateCache.set(number, open);
+              return open;
+            }
+
+            async function syncLabel(owner, repo, issue) {
+              if (issue.pull_request) return;
+
+              let anyOpen = false;
+              for (const n of blockerNumbers(issue.body)) {
+                if (n === issue.number) continue;
+                if (await isOpen(owner, repo, n)) { anyOpen = true; break; }
+              }
+
+              const shouldBlock = issue.state === 'open' && anyOpen;
+              const hasBlock = (issue.labels || [])
+                .some((l) => (l.name || l) === BLOCKED);
+
+              if (shouldBlock && !hasBlock) {
+                await github.rest.issues.addLabels({
+                  owner, repo, issue_number: issue.number, labels: [BLOCKED],
+                });
+                core.info(`#${issue.number}: added ${BLOCKED}`);
+              } else if (!shouldBlock && hasBlock) {
+                await github.rest.issues.removeLabel({
+                  owner, repo, issue_number: issue.number, name: BLOCKED,
+                }).catch((e) => { if (e.status !== 404) throw e; });
+                core.info(`#${issue.number}: removed ${BLOCKED}`);
+              }
+            }
+
+            const { owner, repo } = context.repo;
+
+            if (context.eventName === 'issues') {
+              const trigger = context.payload.issue;
+              stateCache.set(trigger.number, trigger.state === 'open');
+              // The triggering issue's own body/state may have changed.
+              await syncLabel(owner, repo, trigger);
+
+              // When it closes or reopens, re-derive every open issue that lists
+              // it under "Blocked by".
+              if (['closed', 'reopened'].includes(context.payload.action)) {
+                const dependents = await github.paginate(
+                  github.rest.issues.listForRepo,
+                  { owner, repo, state: 'open', labels: BLOCKED, per_page: 100 },
+                );
+                for (const dep of dependents) {
+                  if (dep.number === trigger.number) continue;
+                  if (blockerNumbers(dep.body).includes(trigger.number)) {
+                    await syncLabel(owner, repo, dep);
+                  }
+                }
+              }
+            } else {
+              // workflow_dispatch / schedule: full sweep (also the backfill).
+              const all = await github.paginate(
+                github.rest.issues.listForRepo,
+                { owner, repo, state: 'open', per_page: 100 },
+              );
+              for (const iss of all) await syncLabel(owner, repo, iss);
+            }
