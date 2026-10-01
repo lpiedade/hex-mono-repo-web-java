@@ -36,7 +36,8 @@ and the request's `correlationId`, never a stack trace.
 ## Running
 
 ```bash
-APP_AUTH_MODE=dev-token APP_AUTH_DEV_TOKEN=local APP_DB_PASSWORD=... \
+# APP_DB_PASSWORD comes from your environment; never write it inline.
+APP_AUTH_MODE=dev-token APP_AUTH_DEV_TOKEN=local \
   java -jar apps/api/target/api-0.1.0-SNAPSHOT-exec.jar
 ```
 
