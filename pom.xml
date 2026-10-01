@@ -12,6 +12,14 @@
     <name>App</name>
     <description>Hexagonal Java monorepo: core, adapters, HTTP API, CLI and web portal</description>
 
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
     <modules>
         <module>core</module>
         <module>adapters/persistence</module>
