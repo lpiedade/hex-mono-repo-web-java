@@ -1,4 +1,4 @@
-# App — hexagonal Java monorepo template
+# App — Hexagonal Java Monorepo Template
 
 A starting point for a web application with a hexagonal Java core, an HTTP API,
 a command-line client and a React portal behind a backend-for-frontend. It ships
