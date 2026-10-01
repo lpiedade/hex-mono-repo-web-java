@@ -15,7 +15,7 @@
 
     <properties>
         <!-- Coverage floors: docs/performance/coverage-ratchet.md -->
-        <coverage.floor.instruction>0.8671</coverage.floor.instruction>
+        <coverage.floor.instruction>0.8673</coverage.floor.instruction>
         <coverage.floor.branch>1.0000</coverage.floor.branch>
     </properties>
 

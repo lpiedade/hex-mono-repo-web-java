@@ -31,6 +31,10 @@ logging:
   level:
     root: ${APP_LOG_LEVEL:INFO}
     com.example.app: ${APP_LOG_LEVEL_APP:INFO}
+    # One line per request (RequestLogFilter) and one per successful write
+    # (ItemController); each can be silenced or raised on its own.
+    com.example.app.api.access: ${APP_LOG_LEVEL_ACCESS:INFO}
+    com.example.app.api.audit: ${APP_LOG_LEVEL_AUDIT:INFO}
 
 server:
   port: 8080

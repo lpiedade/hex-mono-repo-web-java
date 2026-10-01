@@ -44,11 +44,11 @@ their coverage moves with the contract, not the product.
 
 | Module | Directory | Instructions floor | Branches floor | Measured at |
 | --- | --- | ---: | ---: | --- |
-| `core` | `core/` | `0.8671` | `1.0000` | template baseline (398/459 instr., 18/18 branches) |
+| `core` | `core/` | `0.8673` | `1.0000` | template baseline (399/460 instr., 18/18 branches) |
 | `adapter-persistence` | `adapters/persistence/` | `0.9447` | `1.0000` | template baseline (154/163, 4/4) |
 | `adapter-jvm` | `adapters/jvm/` | `1.0000` | `0.00` | template baseline (6/6, no branches) |
-| `api` | `apps/api/` | `0.8871` | `0.6477` | template baseline (1171/1320, 57/88) |
-| `portal` (BFF) | `portal/` | `0.9708` | `0.7777` | template baseline (1134/1168, 56/72) |
+| `api` | `apps/api/` | `0.9002` | `0.6562` | template baseline (1345/1494, 63/96) |
+| `portal` (BFF) | `portal/` | `0.9730` | `0.8026` | template baseline (1480/1521, 61/76) |
 | `cli` | `apps/cli/` | `0.8773` | `0.7741` | template baseline (286/326, 24/31) |
 
 ### `portal/web`

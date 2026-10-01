@@ -32,9 +32,14 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  *
  * <ul>
  *   <li>A {@link ProblemException} from {@code core} carries its own problem, so one
- *       handler serves every subdomain's refusals.</li>
+ *       handler serves every subdomain's refusals. A refusal is logged at DEBUG only — its
+ *       status is already on the access line (ADR-016) — and a problem of kind
+ *       {@code INTERNAL} at ERROR, with its stack.</li>
+ *   <li>A path no controller maps is a 404 {@code NOT_FOUND}, not Spring's default
+ *       error page.</li>
  *   <li>A malformed request — unreadable body, invalid field, wrong parameter type such
- *       as a path id that is not a UUID, missing header or parameter — is a safe 400.</li>
+ *       as a path id that is not a UUID, missing header or parameter — is a safe 400
+ *       {@code BAD_REQUEST}; an invalid field is named in {@code errors}.</li>
  *   <li>Anything else the framework already classified keeps its status (405, 415…).</li>
  *   <li>Anything unexpected is logged with the correlation id and answered as a generic
  *       500. No body carries a stack trace, SQL, or secret.</li>
@@ -51,7 +56,9 @@ public class ApiExceptionHandler {
         if (problem.kind() == ProblemKind.INTERNAL) {
             log.error("Internal problem {}", problem.code(), exception);
         } else {
-            log.info("Refused with {}: {}", problem.code(), exception.getMessage());
+            // A refusal is the contract working: the access line already has its status,
+            // so the detail is DEBUG, not a line per 404 or 409 in production.
+            log.debug("Refused with {}: {}", problem.code(), exception.getMessage());
         }
         return ProblemResponses.of(problem, request);
     }

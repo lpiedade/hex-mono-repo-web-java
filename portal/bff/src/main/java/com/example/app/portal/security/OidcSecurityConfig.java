@@ -8,6 +8,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,12 +43,16 @@ import tools.jackson.databind.ObjectMapper;
  * <ul>
  *   <li>Tokens live in the server-side {@code HttpSession}; the browser holds only the
  *       session cookie, which is {@code HttpOnly}.</li>
- *   <li>Every endpoint sits under {@code /app/bff} so one routing rule at the edge sends
- *       login, callback, logout and the proxy to the BFF.</li>
+ *   <li>Login, callback, logout and the proxy all sit under {@code /app/bff}, so the edge
+ *       routes that one prefix to the BFF, beside the public {@code /app/health} and
+ *       {@code /app/about} (ADR-017).</li>
  *   <li>CSRF uses the SPA pattern: a readable {@code XSRF-TOKEN} cookie echoed back as
  *       {@code X-XSRF-TOKEN} on every mutating request, logout included.</li>
  *   <li>A proxied call without a session answers {@code 401 SESSION_REQUIRED} as JSON; the
  *       SPA then navigates to {@code /app/bff/oauth2/authorization/oidc}.</li>
+ *   <li>A completed login always returns the browser to the SPA's root, {@code /app/}; a
+ *       callback that completes no login answers {@code 401 LOGIN_FAILED} instead of
+ *       redirecting. Both are {@link BffSecurityHandlers}, and both are logged.</li>
  * </ul>
  *
  * <p>The session is in memory, so more than one BFF replica needs sticky sessions or a
@@ -56,6 +62,8 @@ import tools.jackson.databind.ObjectMapper;
 @EnableWebSecurity
 @ConditionalOnProperty(prefix = "app.bff.auth", name = "mode", havingValue = "oidc", matchIfMissing = true)
 public class OidcSecurityConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(OidcSecurityConfig.class);
 
     /** Part of the login URL the SPA navigates to; change both together. */
     static final String REGISTRATION_ID = "oidc";
@@ -123,12 +131,13 @@ public class OidcSecurityConfig {
                         .redirectionEndpoint(endpoint -> endpoint.baseUri(CALLBACK_BASE_URI + "/*"))
                         .authorizedClientRepository(authorizedClients)
                         // Back to the SPA, not to the API call that found the session missing.
-                        .defaultSuccessUrl("/app/", true))
+                        .successHandler(BffSecurityHandlers.loginSucceeded("/app/"))
+                        .failureHandler(BffSecurityHandlers.loginFailed(properties, objectMapper)))
                 .csrf(csrf -> csrf.spa())
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 .logout(logout -> logout
                         .logoutUrl("/app/bff/logout")
-                        .logoutSuccessHandler(BffSecurityHandlers.noContent()))
+                        .logoutSuccessHandler(BffSecurityHandlers.loggedOut()))
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(BffSecurityHandlers.sessionRequired(properties, objectMapper))
                         .accessDeniedHandler(BffSecurityHandlers.forbidden(properties, objectMapper)));
@@ -155,6 +164,7 @@ public class OidcSecurityConfig {
                 // again rather than relaying a token the API will refuse.
                 OAuth2AuthorizedClient client = manager.authorize(authorize);
                 if (client == null || isExpired(client.getAccessToken())) {
+                    log.info("Session token expired and could not be refreshed; login required");
                     return Optional.empty();
                 }
                 return Optional.of(client.getAccessToken().getTokenValue());

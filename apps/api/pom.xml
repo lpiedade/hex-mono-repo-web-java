@@ -21,8 +21,8 @@
 
     <properties>
         <!-- Coverage floors: docs/performance/coverage-ratchet.md -->
-        <coverage.floor.instruction>0.8871</coverage.floor.instruction>
-        <coverage.floor.branch>0.6477</coverage.floor.branch>
+        <coverage.floor.instruction>0.9002</coverage.floor.instruction>
+        <coverage.floor.branch>0.6562</coverage.floor.branch>
         <!--
             Swagger UI static assets for the dev-profile documentation page. The
             version is referenced by the resource handler in SwaggerUiDevConfig;

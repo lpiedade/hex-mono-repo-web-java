@@ -71,7 +71,8 @@ The format is committed, self-contained, and prints the MDC:
   none of Boot's logback defaults, so the format does not move when Boot does.
   Both patterns have the same shape, because the same id crosses both processes
   and a shared field is what lets one query join a BFF line to the API line it
-  provoked.
+  provoked. The API's adds `[%X{subject:--}]` (below); the BFF's does not, so
+  the subject is read off the API line a BFF line joins to.
 - Every `ThreadPoolTaskExecutor` that runs `@Async` work carries
   `MdcTaskDecorator`, so that work logs under the correlation id of the request
   that started it. The decorator restores the pool thread's previous context
@@ -81,6 +82,32 @@ The format is committed, self-contained, and prints the MDC:
   Spring context — that sends **every** log line to `System.err` with the root
   at `WARN`. The CLI's stdout is a contract its `*IT` suites assert on, so no
   library may write to it.
+- **A message cannot forge a line.** Both patterns print the message through
+  `%replace(%msg){'[\r\n]+', ' '}`: a value a client supplied — a path, an
+  error's text — can reach a message, and a raw CR/LF in it would read as a
+  separate, forged log line. As a second guard, exception messages name
+  entities by id, never by text a client typed (`ItemNameExistsException`).
+  `LogPatternTest` and `BffLogPatternTest` render the committed patterns and
+  hold both claims.
+- **Every request leaves one access line**, on a logger of its own
+  (`com.example.app.api.access`, `com.example.app.portal.access`) so its level
+  can be set apart: method, path, status and duration, with the correlation id.
+  The query string is left out, and so are health probes.
+- **The API's lines say who asked.** `SubjectMdcFilter` binds the
+  authenticated caller's `sub` into the MDC as `subject` after authentication
+  and before authorization, so a request refused for a missing role is
+  attributed too; the API's pattern prints `[%X{subject:--}]`.
+- **Every successful write leaves an audit line** on
+  `com.example.app.api.audit` — the event and the entity's id, never its
+  content. The subject and correlation id come from the MDC.
+- **Security events are logged, never their secrets.** In the API, a missing
+  credential is INFO and a refused one WARN with the resource server's reason;
+  a missing role is WARN. In the BFF, a missing session is INFO; a CSRF
+  refusal, a failed login (with the OAuth2 error code) and an unreachable API
+  are WARN; a completed login, a logout and a session whose token could not be
+  refreshed are INFO. No line carries a token, a cookie or a session id.
+- **A domain refusal is DEBUG.** A 404 or a 409 is the contract working; its
+  status is already on the access line.
 - `application.yml` carries levels and nothing else. Raising the application's
   own packages is a separate logger level from the root, because raising the
   root to DEBUG also raises Spring, Hikari and Flyway and buries the lines an

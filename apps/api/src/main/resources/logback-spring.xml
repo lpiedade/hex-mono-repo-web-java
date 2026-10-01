@@ -13,6 +13,14 @@
     logs are read from an aggregator far more often than from a terminal.
 
     Everything routes to stdout. A container runtime collects it; nothing writes files.
+
+    %replace neutralises CR and LF in the message: a value a client supplied can reach a
+    log line (a path, an error's text), and a raw newline in it would forge a line of its
+    own. Stack traces are appended by logback after the message and keep their lines.
+
+    %X{subject} is the authenticated caller (the JWT `sub`, or the dev-token subject),
+    bound by SubjectMdcFilter once security has run, so access, audit and error lines
+    say who asked. "-" when the request was anonymous.
 -->
 <configuration>
 
@@ -27,7 +35,7 @@
                 field and stays parseable by column. logback appends a stack trace
                 automatically when one is present.
             -->
-            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSS, UTC} %-5level [${applicationName:-}] [%X{correlationId:--}] [%thread] %logger{40} : %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSS, UTC} %-5level [${applicationName:-}] [%X{correlationId:--}] [%X{subject:--}] [%thread] %logger{40} : %replace(%msg){'[\r\n]+', ' '}%n</pattern>
         </encoder>
     </appender>
 

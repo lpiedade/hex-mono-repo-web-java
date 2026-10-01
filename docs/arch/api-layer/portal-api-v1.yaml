@@ -242,7 +242,7 @@ components:
         title: { type: string }
         status: { type: integer }
         detail: { type: string }
-        code: { type: string, examples: [UPSTREAM_UNAVAILABLE, SESSION_REQUIRED] }
+        code: { type: string, examples: [UPSTREAM_UNAVAILABLE, SESSION_REQUIRED, LOGIN_FAILED, FORBIDDEN, NOT_FOUND, INTERNAL_ERROR] }
         correlationId: { type: string }
         portalApiVersion: { type: integer }
 

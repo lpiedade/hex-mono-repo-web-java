@@ -10,7 +10,15 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-/** Web-layer wiring that is independent of the authentication mode. */
+/**
+ * Web-layer wiring that is independent of the authentication mode: the two servlet
+ * filters outside the security chain, and the CORS policy inside it.
+ *
+ * <p>Filter order is part of the logging contract (ADR-016). {@link CorrelationIdFilter}
+ * runs first, so everything after it logs under the request's id; {@link RequestLogFilter}
+ * second; Spring Security's chain, which Boot registers at a lower precedence than both,
+ * after them, so a request security refuses is still correlated and still logged.
+ */
 @Configuration(proxyBeanMethods = false)
 public class WebConfig {
 
@@ -29,6 +37,19 @@ public class WebConfig {
         FilterRegistrationBean<CorrelationIdFilter> registration =
                 new FilterRegistrationBean<>(new CorrelationIdFilter());
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        registration.addUrlPatterns("/*");
+        return registration;
+    }
+
+    /**
+     * Registers {@link RequestLogFilter} right after the correlation filter, so every
+     * access line carries the correlation id, and ahead of the security chain, so a
+     * request security refuses is logged too.
+     */
+    @Bean
+    public FilterRegistrationBean<RequestLogFilter> requestLogFilter() {
+        FilterRegistrationBean<RequestLogFilter> registration = new FilterRegistrationBean<>(new RequestLogFilter());
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
         registration.addUrlPatterns("/*");
         return registration;
     }

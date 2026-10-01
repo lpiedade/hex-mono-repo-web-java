@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-    Log format for the portal BFF (ADR-016). Same pattern as the API's: the same
-    correlation id crosses both processes, and a shared field is what lets one query
-    join a BFF line to the API line it provoked.
+    Log format for the portal BFF (ADR-016). The API's pattern, minus its subject field:
+    the same correlation id crosses both processes, and a shared field is what lets one
+    query join a BFF line to the API line it provoked, which names the subject.
+
+    %replace neutralises CR and LF in the message: a value a client supplied can reach a
+    log line (a path, an error's text), and a raw newline in it would forge a line of its
+    own. Stack traces are appended by logback after the message and keep their lines.
 -->
 <configuration>
 
@@ -11,7 +15,7 @@
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSS, UTC} %-5level [${applicationName:-}] [%X{correlationId:--}] [%thread] %logger{40} : %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSS, UTC} %-5level [${applicationName:-}] [%X{correlationId:--}] [%thread] %logger{40} : %replace(%msg){'[\r\n]+', ' '}%n</pattern>
         </encoder>
     </appender>
 

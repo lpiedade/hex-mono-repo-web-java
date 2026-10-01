@@ -90,14 +90,15 @@ public class BffProxy {
 
         HttpRequest upstreamRequest = buildUpstreamRequest(request, correlationId, token);
         HttpResponse<InputStream> upstreamResponse;
+        long start = System.nanoTime();
         try {
             upstreamResponse = httpClient.send(upstreamRequest, HttpResponse.BodyHandlers.ofInputStream());
         } catch (IOException cause) {
-            writeUpstreamUnavailable(response, correlationId, cause);
+            writeUpstreamUnavailable(request, response, correlationId, cause, start);
             return;
         } catch (InterruptedException cause) {
             Thread.currentThread().interrupt();
-            writeUpstreamUnavailable(response, correlationId, cause);
+            writeUpstreamUnavailable(request, response, correlationId, cause, start);
             return;
         }
         copyUpstreamResponse(upstreamResponse, response);
@@ -162,9 +163,17 @@ public class BffProxy {
         }
     }
 
-    private void writeUpstreamUnavailable(HttpServletResponse response, String correlationId, Exception cause)
+    /**
+     * The API could not be reached or did not answer in time. The line says which call and
+     * how long it waited, so a timeout reads differently from a refused connection.
+     */
+    private void writeUpstreamUnavailable(
+            HttpServletRequest request, HttpServletResponse response, String correlationId, Exception cause,
+            long start)
             throws IOException {
-        log.warn("Application API unreachable: {}", cause.toString());
+        long waitedMillis = (System.nanoTime() - start) / 1_000_000L;
+        log.warn("Application API unreachable after {}ms: {} {} ({})",
+                waitedMillis, request.getMethod(), request.getRequestURI(), cause.toString());
         BffProblem.upstreamUnavailable(correlationId, properties.portalApiVersion()).writeTo(response, objectMapper);
     }
 }

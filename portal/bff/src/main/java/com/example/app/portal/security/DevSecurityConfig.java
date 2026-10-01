@@ -51,7 +51,7 @@ public class DevSecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
                 .logout(logout -> logout
                         .logoutUrl("/app/bff/logout")
-                        .logoutSuccessHandler(BffSecurityHandlers.noContent()));
+                        .logoutSuccessHandler(BffSecurityHandlers.loggedOut()));
         return http.build();
     }
 

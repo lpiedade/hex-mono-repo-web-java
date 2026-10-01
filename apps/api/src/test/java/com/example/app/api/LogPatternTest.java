@@ -15,13 +15,15 @@ import org.slf4j.MDC;
 import org.w3c.dom.Document;
 
 /**
- * Guards the one claim {@code logback-spring.xml} exists to make: that a log line carries
- * the request's correlation id (ADR-016).
+ * Guards the claims {@code logback-spring.xml} exists to make (ADR-016): a log line carries
+ * the request's correlation id, with a {@code -} placeholder outside any request; it
+ * carries the caller's subject the same way; and a CR or LF in a message cannot forge a
+ * line of its own.
  *
- * <p>A passing build does not establish this. Logback tolerates a malformed pattern — an
- * unrecognised conversion word degrades to literal text or nothing rather than failing
- * startup — so the API could boot, serve, and log perfectly happily while silently
- * dropping the field, with {@code CorrelationIdFilter} writing an MDC nothing reads.
+ * <p>A passing build does not establish any of this. Logback tolerates a malformed
+ * pattern — an unrecognised conversion word degrades to literal text or nothing rather
+ * than failing startup — so the API could boot, serve, and log perfectly happily while
+ * silently dropping a field, with {@code CorrelationIdFilter} writing an MDC nothing reads.
  *
  * <p>The pattern is read out of the committed file rather than repeated here, so the test
  * cannot pass against a pattern the application does not use.
@@ -52,6 +54,26 @@ class LogPatternTest {
 
         assertThat(line).contains("[-]");
         assertThat(line).contains("worker started");
+    }
+
+    @Test
+    void aNewlineInTheMessageCannotForgeALineOfItsOwn() throws Exception {
+        // A value a client supplied — a path, an error's text — can reach a message. With
+        // a raw CR/LF in it, what follows would read as a separate, forged log line.
+        String line = render(declaredPattern(), "correlationId", "abc-123",
+                "item created\r\n2026-01-01T00:00:00.000 ERROR [app-api] forged line");
+
+        assertThat(line.strip()).doesNotContain("\n").doesNotContain("\r");
+        assertThat(line).endsWith(System.lineSeparator());
+        assertThat(line).contains("item created 2026-01-01T00:00:00.000 ERROR [app-api] forged line");
+    }
+
+    @Test
+    void theSubjectIsPrintedWhenBoundAndAPlaceholderOtherwise() throws Exception {
+        String pattern = declaredPattern();
+
+        assertThat(render(pattern, "subject", "dev@app.local", "item created")).contains("[dev@app.local]");
+        assertThat(pattern).contains("%X{subject:--}");
     }
 
     /** The {@code <pattern>} declared by the application's own logback configuration. */

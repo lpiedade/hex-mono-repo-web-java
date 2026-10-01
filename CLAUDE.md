@@ -133,6 +133,13 @@ the overall style; start there. Domain vocabulary lives in
   `portal/bff` prints `%X{correlationId}` — the whole reason those files exist —
   and includes none of Boot's logback defaults. `application.yml` carries levels
   and nothing else.
+- **What gets a line** is fixed (ADR-016): one access line per request on the
+  `…access` loggers, one audit line per successful write on
+  `com.example.app.api.audit`, and the security events (401/403, CSRF
+  refusals, logins, logouts, expired sessions). A line never carries a token, a
+  cookie, a session id, or text a client typed: name entities by id, including
+  in exception messages. The patterns neutralise CR/LF in the message; keep it
+  that way.
 - Work dispatched with `@Async` must go through an executor carrying
   `MdcTaskDecorator` (Boot's default executor does, via `AsyncConfig`), or it
   logs without a correlation id.

@@ -52,12 +52,13 @@ public class DevTokenSecurityConfig {
             ProblemDetailsAuthenticationEntryPoint authenticationEntryPoint,
             ProblemDetailsAccessDeniedHandler accessDeniedHandler)
             throws Exception {
-        ApiAuthorization.apply(http, authenticationEntryPoint, accessDeniedHandler);
         // Constructed here rather than exposed as a @Bean: a Filter bean would also be
-        // registered by Boot on the servlet container, outside the security chain.
+        // registered by Boot on the servlet container, outside the security chain. Added
+        // before ApiAuthorization.apply, so it runs ahead of SubjectMdcFilter.
         http.addFilterBefore(
                 new DevTokenAuthenticationFilter(authProperties.devToken(), authProperties.devSubject()),
                 AuthorizationFilter.class);
+        ApiAuthorization.apply(http, authenticationEntryPoint, accessDeniedHandler);
         return http.build();
     }
 }

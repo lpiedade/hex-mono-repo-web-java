@@ -6,6 +6,7 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 
 /**
  * The part of the security chain both authentication modes share (ADR-011): which
@@ -46,6 +47,12 @@ final class ApiAuthorization {
                         .anyRequest().authenticated())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(authenticationEntryPoint)
-                        .accessDeniedHandler(accessDeniedHandler));
+                        .accessDeniedHandler(accessDeniedHandler))
+                // After every authentication filter, before authorization: a request
+                // refused for a missing role is attributed to its subject too. A mode that
+                // adds its own authentication filter before AuthorizationFilter adds it
+                // before calling this method, so it runs first (filters of equal order
+                // keep their insertion order).
+                .addFilterBefore(new SubjectMdcFilter(), AuthorizationFilter.class);
     }
 }

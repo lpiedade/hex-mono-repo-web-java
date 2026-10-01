@@ -7,6 +7,8 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
+import ch.qos.logback.classic.Level;
+import com.example.app.portal.LogCapture;
 import com.example.app.portal.TestAutoConfigurationExclusions;
 import com.example.app.portal.web.BffEnvelopeFilter;
 import com.sun.net.httpserver.HttpExchange;
@@ -44,6 +46,10 @@ import org.springframework.web.context.WebApplicationContext;
  * The default browser mode (ADR-010) against a stub that plays both the identity
  * provider — serving the OIDC discovery document the BFF reads at startup — and the
  * application API, recording what the BFF relays to it.
+ *
+ * <p>Each security answer is also checked for the line it logs (ADR-016): a missing session
+ * and a logout at INFO, a CSRF refusal and a failed login at WARN, and a session whose
+ * token could not be refreshed at INFO.
  */
 @SpringBootTest(properties = "spring.autoconfigure.exclude=" + TestAutoConfigurationExclusions.VALUE)
 class OidcModeTest {
@@ -90,12 +96,29 @@ class OidcModeTest {
 
     @Test
     void aCallWithoutASessionIsSessionRequiredNotARedirect() throws Exception {
-        MvcResult result = mvc.perform(get("/app/bff/v1/items")).andReturn();
+        try (LogCapture security = LogCapture.of(BffSecurityHandlers.class)) {
+            MvcResult result = mvc.perform(get("/app/bff/v1/items")).andReturn();
 
-        assertThat(result.getResponse().getStatus()).isEqualTo(401);
-        assertThat(result.getResponse().getContentAsString()).contains("\"code\":\"SESSION_REQUIRED\"");
-        assertThat(result.getResponse().getHeader("X-Portal-Api-Version")).isEqualTo("1");
-        assertThat(RELAYED_AUTHORIZATION.get()).isNull();
+            assertThat(result.getResponse().getStatus()).isEqualTo(401);
+            assertThat(result.getResponse().getContentAsString()).contains("\"code\":\"SESSION_REQUIRED\"");
+            assertThat(result.getResponse().getHeader("X-Portal-Api-Version")).isEqualTo("1");
+            assertThat(RELAYED_AUTHORIZATION.get()).isNull();
+            assertThat(messages(security, Level.INFO)).containsExactly("Session required: GET /app/bff/v1/items");
+        }
+    }
+
+    @Test
+    void aCallbackThatCompletesNoLoginIsLoginFailedAndLogged() throws Exception {
+        // No authorization request was saved for this state, as after a replayed or forged
+        // callback: Spring Security refuses it before any code exchange.
+        try (LogCapture security = LogCapture.of(BffSecurityHandlers.class)) {
+            MvcResult result = mvc.perform(get("/app/bff/login/oauth2/code/oidc")
+                    .param("code", "forged").param("state", "unknown")).andReturn();
+
+            assertThat(result.getResponse().getStatus()).isEqualTo(401);
+            assertThat(result.getResponse().getContentAsString()).contains("\"code\":\"LOGIN_FAILED\"");
+            assertThat(messages(security, Level.WARN)).containsExactly("Login failed: authorization_request_not_found");
+        }
     }
 
     @Test
@@ -143,12 +166,16 @@ class OidcModeTest {
         MockHttpSession session = new MockHttpSession();
         OAuth2AuthenticationToken user = signIn(session, Instant.now().minusSeconds(5));
 
-        MvcResult result = mvc.perform(get("/app/bff/v1/items").session(session).with(authentication(user)))
-                .andReturn();
+        try (LogCapture expiry = LogCapture.of(OidcSecurityConfig.class)) {
+            MvcResult result = mvc.perform(get("/app/bff/v1/items").session(session).with(authentication(user)))
+                    .andReturn();
 
-        assertThat(result.getResponse().getStatus()).isEqualTo(401);
-        assertThat(result.getResponse().getContentAsString()).contains("SESSION_REQUIRED");
-        assertThat(RELAYED_AUTHORIZATION.get()).isNull();
+            assertThat(result.getResponse().getStatus()).isEqualTo(401);
+            assertThat(result.getResponse().getContentAsString()).contains("SESSION_REQUIRED");
+            assertThat(RELAYED_AUTHORIZATION.get()).isNull();
+            assertThat(messages(expiry, Level.INFO))
+                    .containsExactly("Session token expired and could not be refreshed; login required");
+        }
     }
 
     @Test
@@ -156,11 +183,15 @@ class OidcModeTest {
         MockHttpSession session = new MockHttpSession();
         OAuth2AuthenticationToken user = signIn(session, Instant.now().plusSeconds(300));
 
-        MvcResult refused = mvc.perform(post("/app/bff/v1/items").session(session).with(authentication(user))
-                        .contentType("application/json").content("{\"name\":\"x\"}"))
-                .andReturn();
-        assertThat(refused.getResponse().getStatus()).isEqualTo(403);
-        assertThat(refused.getResponse().getContentAsString()).contains("\"code\":\"FORBIDDEN\"");
+        try (LogCapture security = LogCapture.of(BffSecurityHandlers.class)) {
+            MvcResult refused = mvc.perform(post("/app/bff/v1/items").session(session).with(authentication(user))
+                            .contentType("application/json").content("{\"name\":\"x\"}"))
+                    .andReturn();
+            assertThat(refused.getResponse().getStatus()).isEqualTo(403);
+            assertThat(refused.getResponse().getContentAsString()).contains("\"code\":\"FORBIDDEN\"");
+            assertThat(messages(security, Level.WARN))
+                    .containsExactly("Request refused (MissingCsrfTokenException): POST /app/bff/v1/items");
+        }
 
         MvcResult accepted = mvc.perform(post("/app/bff/v1/items").session(session).with(authentication(user))
                         .with(csrf())
@@ -174,11 +205,21 @@ class OidcModeTest {
         MockHttpSession session = new MockHttpSession();
         OAuth2AuthenticationToken user = signIn(session, Instant.now().plusSeconds(300));
 
-        MvcResult result = mvc.perform(post("/app/bff/logout").session(session).with(authentication(user))
-                .with(csrf())).andReturn();
+        try (LogCapture security = LogCapture.of(BffSecurityHandlers.class)) {
+            MvcResult result = mvc.perform(post("/app/bff/logout").session(session).with(authentication(user))
+                    .with(csrf())).andReturn();
 
-        assertThat(result.getResponse().getStatus()).isEqualTo(204);
-        assertThat(session.isInvalid()).isTrue();
+            assertThat(result.getResponse().getStatus()).isEqualTo(204);
+            assertThat(session.isInvalid()).isTrue();
+            assertThat(messages(security, Level.INFO)).containsExactly("Logged out: someone");
+        }
+    }
+
+    private static java.util.List<String> messages(LogCapture capture, Level level) {
+        return capture.events().stream()
+                .filter(event -> event.getLevel() == level)
+                .map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+                .toList();
     }
 
     /** What a completed login leaves behind: the user, and their tokens in the session. */

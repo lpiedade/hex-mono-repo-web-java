@@ -23,8 +23,8 @@
 
     <properties>
         <!-- Coverage floors for the BFF only; the SPA's live in web/vite.config.ts. -->
-        <coverage.floor.instruction>0.9708</coverage.floor.instruction>
-        <coverage.floor.branch>0.7777</coverage.floor.branch>
+        <coverage.floor.instruction>0.9730</coverage.floor.instruction>
+        <coverage.floor.branch>0.8026</coverage.floor.branch>
     </properties>
 
     <dependencies>

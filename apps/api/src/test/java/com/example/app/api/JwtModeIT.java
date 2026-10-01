@@ -2,6 +2,9 @@ package com.example.app.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Level;
+import com.example.app.api.security.ProblemDetailsAccessDeniedHandler;
+import com.example.app.api.security.ProblemDetailsAuthenticationEntryPoint;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
@@ -38,6 +41,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * not know grant nothing. The test signs its own tokens with a key pair it generates, and
  * supplies the matching {@link JwtDecoder} bean, which {@code JwtSecurityConfig} prefers
  * over issuer discovery.
+ *
+ * <p>It also holds the two security lines only this mode can provoke (ADR-016): a request
+ * refused for a missing role is WARN and attributed to its subject, and a token that was
+ * presented and refused is WARN with the reason, never the token.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {"app.auth.mode=jwt", "app.auth.roles-claim=realm_access.roles"})
@@ -72,9 +79,19 @@ class JwtModeIT {
         String token = token("reader@example.com", List.of("READER", "SOMEONE_ELSES_ROLE"));
 
         assertThat(call("GET", "/api/v1/items", token, null).statusCode()).isEqualTo(200);
-        HttpResponse<String> write = call("POST", "/api/v1/items", token, "{\"name\":\"denied\"}");
-        assertThat(write.statusCode()).isEqualTo(403);
-        assertThat(write.body()).contains("\"code\":\"FORBIDDEN\"");
+        try (LogCapture denied = LogCapture.of(ProblemDetailsAccessDeniedHandler.class)) {
+            HttpResponse<String> write = call("POST", "/api/v1/items", token, "{\"name\":\"denied\"}");
+            assertThat(write.statusCode()).isEqualTo(403);
+            assertThat(write.body()).contains("\"code\":\"FORBIDDEN\"");
+
+            // Refused for a missing role, and still attributed: SubjectMdcFilter runs
+            // before authorization.
+            assertThat(denied.events()).singleElement().satisfies(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getFormattedMessage()).isEqualTo("Access denied: POST /api/v1/items");
+                assertThat(event.getMDCPropertyMap()).containsEntry("subject", "reader@example.com");
+            });
+        }
     }
 
     @Test
@@ -105,9 +122,20 @@ class JwtModeIT {
     @Test
     void anExpiredOrForeignTokenIsUnauthenticated() throws Exception {
         String expired = token("late@example.com", List.of("READER"), Instant.now().minusSeconds(3600));
-        HttpResponse<String> response = call("GET", "/api/v1/items", expired, null);
-        assertThat(response.statusCode()).isEqualTo(401);
-        assertThat(response.body()).contains("\"code\":\"UNAUTHENTICATED\"");
+        try (LogCapture refused = LogCapture.of(ProblemDetailsAuthenticationEntryPoint.class)) {
+            HttpResponse<String> response = call("GET", "/api/v1/items", expired, null);
+            assertThat(response.statusCode()).isEqualTo(401);
+            assertThat(response.body()).contains("\"code\":\"UNAUTHENTICATED\"");
+
+            // A presented token that is refused is WARN, with the reason — never the token.
+            assertThat(refused.events()).singleElement().satisfies(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getFormattedMessage())
+                        .startsWith("Authentication refused: GET /api/v1/items")
+                        .containsIgnoringCase("expired")
+                        .doesNotContain(expired);
+            });
+        }
 
         assertThat(call("GET", "/api/v1/items", "not-a-jwt", null).statusCode()).isEqualTo(401);
     }
