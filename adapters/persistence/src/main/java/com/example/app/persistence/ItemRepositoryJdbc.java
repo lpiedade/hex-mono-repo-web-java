@@ -16,8 +16,13 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  * {@link ItemRepository} over the {@code item} table (ADR-008): explicit SQL
  * through {@link JdbcClient}, one statement per method, each atomic on its own.
  *
- * <p>Instants are written as {@code timestamptz} through {@link Timestamp} so the
- * driver never interprets them in the JVM's default time zone.
+ * <p>Instants are bound as {@link Timestamp} into {@code timestamptz} columns, so the
+ * instant that is stored and read back does not depend on the JVM's default time zone.
+ *
+ * <p>Spring reports a violated unique constraint as {@link DuplicateKeyException}; it is
+ * translated here into the port's {@link UniqueConstraintViolation}, so no Spring type
+ * reaches the flow. The only unique constraint a write can break in practice is the
+ * name's: the primary key is a UUID the flow generated.
  */
 public final class ItemRepositoryJdbc implements ItemRepository {
 

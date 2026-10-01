@@ -18,6 +18,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * X-Correlation-ID: &lt;propagated or generated UUID&gt;
  * </pre>
  *
+ * <p>It also binds the correlation id into the MDC for the length of the request, so every
+ * line the BFF logs while serving it carries the id (ADR-016).
+ *
  * <p>Registered ahead of the security filter chain ({@link PortalWebConfig}), so even a
  * {@code 401 SESSION_REQUIRED} carries the envelope.
  */

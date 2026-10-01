@@ -9,6 +9,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 
+/**
+ * How a JWT's roles claim becomes authorities (ADR-011): flat or nested, list or delimited
+ * string, and only names {@code AppRole} knows, matched case-sensitively.
+ */
 class JwtRolesConverterTest {
 
     private static Jwt jwt(Map<String, Object> claims) {

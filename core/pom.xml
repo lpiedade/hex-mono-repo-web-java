@@ -180,6 +180,30 @@ Offending files:
             </plugin>
 
             <!--
+                core is the library every other module consumes, so its public and
+                protected API must be documented, not only valid: the root POM's
+                all,-missing becomes all here. A public or protected type, field,
+                constructor, method, record component or type parameter without a
+                comment fails the build.
+
+                Scoped to protected, the API a consumer sees: at the root POM's
+                private, all would demand a comment on every private helper.
+
+                A package-info.java documents each subdomain package but never a
+                ring root (domain, flows, ports): javac emits a package-info class
+                for it, and ArchUnit's rule 6 counts that as a class in the ring's
+                root package (ADR-015).
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <show>protected</show>
+                    <doclint>all</doclint>
+                </configuration>
+            </plugin>
+
+            <!--
                 ADR-015 makes the ring report an instrument, not a gate: it must not
                 change what `mvn clean verify` does. Excluded here and re-included by
                 the architecture profile below.

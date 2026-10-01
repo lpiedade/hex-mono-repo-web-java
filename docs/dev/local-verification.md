@@ -31,9 +31,16 @@ export PATH="$JAVA_HOME/bin:$PATH"
 mvn clean verify
 ```
 
-Runs unit tests, integration tests and the per-module coverage floors
-(section 4). **Never pass `-T`**: the openapi-generator in `apps/api` races
+Runs unit tests, integration tests, the per-module coverage floors
+(section 4) and the Javadoc lint. **Never pass `-T`**: the openapi-generator in `apps/api` races
 under parallel builds and produces spurious "cannot find symbol" errors.
+
+The Javadoc lint runs `javadoc` over each module's main sources at `verify` and
+fails on any warning: a malformed comment, a `{@link}` to a symbol that is gone,
+an `@param` the method does not have. In `core` it also fails on a public or
+protected member with no comment. The rendered pages land in
+`<module>/target/reports/apidocs/`; nothing publishes them. It costs about a
+second per module.
 
 It does **not** run the portal's Vitest suite. The React SPA is a standalone
 project with its own commands (ADR-017):

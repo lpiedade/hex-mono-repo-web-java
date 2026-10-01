@@ -7,6 +7,11 @@ import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
+/**
+ * The aggregate's own rules, which hold whichever adapter a value came from: texts are
+ * stripped, a blank description is none, each limit is inclusive, and revising keeps the
+ * identity and the creation instant.
+ */
 class ItemTest {
 
     private static final UUID ID = UUID.fromString("00000000-0000-0000-0000-000000000001");

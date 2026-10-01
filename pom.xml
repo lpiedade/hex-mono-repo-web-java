@@ -55,6 +55,7 @@
         <maven.surefire.version>3.5.4</maven.surefire.version>
         <maven.enforcer.version>3.6.3</maven.enforcer.version>
         <maven.antrun.version>3.1.0</maven.antrun.version>
+        <maven.javadoc.version>3.11.2</maven.javadoc.version>
         <jacoco.version>0.8.13</jacoco.version>
         <!--
             Coverage floors — the ratchet (ADR-019).
@@ -159,6 +160,11 @@
                     <version>${maven.antrun.version}</version>
                 </plugin>
                 <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>${maven.javadoc.version}</version>
+                </plugin>
+                <plugin>
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
                     <version>${jacoco.version}</version>
@@ -183,6 +189,56 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <!--
+                Lint the Javadoc of every module's main sources, so a comment that
+                no longer parses, links to a symbol that is gone, or names a
+                parameter the method does not have fails the build instead of
+                rotting quietly.
+
+                javadoc-no-fork, not javadoc or jar: those two fork the lifecycle
+                up to generate-sources and would re-run the contract generators.
+                This one reads the sources the build already has.
+
+                The default is all,-missing over every member, private included:
+                every comment present must be valid, wherever it sits, but an
+                undocumented member is not an error, because an adapter's or an
+                app's obvious getter needs no comment. core, the library the other
+                modules consume, overrides this in its own POM to all over its
+                public and protected API, so that API must be complete.
+
+                The generated contract packages (ADR-012) are excluded: their
+                comments come from the OpenAPI generator, not from this repository.
+                They stay on the source path, so a hand-written {@link} to a
+                generated model still resolves.
+
+                The Java SE link is not detected: detecting it can reach the
+                network for the JDK's element list, and a lint needs no hyperlinks.
+
+                Cost: about a second per module, five to eight seconds for the
+                reactor, measured against -Dmaven.javadoc.skip=true.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <show>private</show>
+                    <doclint>all,-missing</doclint>
+                    <failOnWarnings>true</failOnWarnings>
+                    <failOnError>true</failOnError>
+                    <quiet>true</quiet>
+                    <detectJavaApiLink>false</detectJavaApiLink>
+                    <excludePackageNames>com.example.app.api.contract:com.example.app.api.contract.*:com.example.app.cli.contract:com.example.app.cli.contract.*</excludePackageNames>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>javadoc-lint</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>javadoc-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <!--
                 Measure coverage, then hold it (ADR-019).

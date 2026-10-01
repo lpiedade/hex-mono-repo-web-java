@@ -17,7 +17,8 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
  * (ADR-011).
  *
  * <p>The roles claim may be a dotted path into nested claims — {@code roles} for a flat
- * claim, {@code realm_access.roles} for Keycloak. Values that name no {@link AppRole}
+ * claim, {@code realm_access.roles} for Keycloak — and its value a list or a single string
+ * of space- or comma-separated names. Values that name no {@link AppRole}
  * are ignored rather than granted, so an identity provider that issues extra roles for
  * other applications grants nothing here by accident. Matching is case-sensitive.
  */

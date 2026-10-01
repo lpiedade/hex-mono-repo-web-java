@@ -9,6 +9,11 @@ import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
+/**
+ * The derived values of the BFF's configuration: a clean API base URL to join paths to, an
+ * OIDC callback that follows the request unless a public origin is configured, and a dev
+ * token that counts only when it is not blank.
+ */
 class PortalPropertiesTest {
 
     private static PortalProperties withBaseUrl(String apiBaseUrl) {

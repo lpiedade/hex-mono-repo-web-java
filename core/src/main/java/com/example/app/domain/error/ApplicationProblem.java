@@ -18,36 +18,48 @@ package com.example.app.domain.error;
  */
 public record ApplicationProblem(ProblemKind kind, String code, String title, String detail) {
 
+    /** No credential was presented, or the one presented could not be verified. */
     public static final ApplicationProblem UNAUTHENTICATED = new ApplicationProblem(
             ProblemKind.UNAUTHENTICATED,
             "UNAUTHENTICATED",
             "Unauthorized",
             "A valid bearer token is required to access this resource.");
 
+    /** The caller is authenticated but lacks the role the operation needs. */
     public static final ApplicationProblem FORBIDDEN = new ApplicationProblem(
             ProblemKind.FORBIDDEN,
             "FORBIDDEN",
             "Forbidden",
             "You do not have permission to access this resource.");
 
+    /**
+     * Nothing answers at the addressed path. A subdomain that can name what is missing
+     * declares its own, more specific problem instead.
+     */
     public static final ApplicationProblem NOT_FOUND = new ApplicationProblem(
             ProblemKind.NOT_FOUND,
             "NOT_FOUND",
             "Not Found",
             "The requested resource does not exist.");
 
+    /**
+     * The request is malformed or breaks the contract: an unreadable body, a field outside
+     * its declared limits, a parameter of the wrong type.
+     */
     public static final ApplicationProblem BAD_REQUEST = new ApplicationProblem(
             ProblemKind.BAD_REQUEST,
             "BAD_REQUEST",
             "Bad Request",
             "The request could not be processed as submitted.");
 
+    /** The request is well-formed, but its values are ones the application refuses. */
     public static final ApplicationProblem VALIDATION_FAILED = new ApplicationProblem(
             ProblemKind.UNPROCESSABLE,
             "VALIDATION_FAILED",
             "Unprocessable Entity",
             "The request is well-formed but its values cannot be accepted.");
 
+    /** A failure nobody anticipated; the cause is in the log, never in the answer. */
     public static final ApplicationProblem INTERNAL_ERROR = new ApplicationProblem(
             ProblemKind.INTERNAL,
             "INTERNAL_ERROR",

@@ -6,6 +6,10 @@ import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Each factory binds its port to the host JVM: the time source reads the real clock, the
+ * ticker never runs backwards, and the id generator yields distinct random UUIDs.
+ */
 class JvmAdaptersTest {
 
     @Test

@@ -13,7 +13,7 @@ import org.slf4j.MDC;
  *
  * <p>Both halves need covering, and the second is the one that bites. Carrying the
  * context across is what makes an {@code @Async} worker log under the right correlation
- * id; *restoring* the pool thread's previous context is what stops a finished task from
+ * id; <em>restoring</em> the pool thread's previous context is what stops a finished task from
  * stamping the next unrelated one, and a decorator missing that half looks perfectly
  * correct in any single-task test.
  */

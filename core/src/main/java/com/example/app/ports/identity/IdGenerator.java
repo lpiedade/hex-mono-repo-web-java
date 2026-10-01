@@ -10,5 +10,11 @@ import java.util.UUID;
  */
 @FunctionalInterface
 public interface IdGenerator {
+
+    /**
+     * A fresh identifier.
+     *
+     * @return an identifier no earlier call returned
+     */
     UUID generate();
 }

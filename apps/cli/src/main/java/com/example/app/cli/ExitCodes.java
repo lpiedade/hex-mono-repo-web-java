@@ -5,7 +5,8 @@ import java.io.PrintStream;
 
 /**
  * The CLI's exit codes, one per kind of answer the API can give, so a script can branch
- * on the result without parsing text. Keep this table and the commands' help in step.
+ * on the result without parsing text. Keep this table and the one in
+ * {@code apps/cli/README.md} in step.
  *
  * <ul>
  *   <li>0 — success</li>

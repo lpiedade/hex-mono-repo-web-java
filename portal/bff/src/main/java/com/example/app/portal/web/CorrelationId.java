@@ -11,6 +11,7 @@ import java.util.UUID;
  */
 public final class CorrelationId {
 
+    /** The header the id travels in, from the browser, to the API, and back on the response. */
     public static final String HEADER = "X-Correlation-ID";
 
     /** Request attribute under which {@link BffEnvelopeFilter} stores the resolved id. */
@@ -25,6 +26,10 @@ public final class CorrelationId {
     private CorrelationId() {
     }
 
+    /**
+     * The id {@link BffEnvelopeFilter} resolved for this request, falling back to the
+     * inbound header, and finally to a freshly generated UUID. Never null or blank.
+     */
     public static String resolve(HttpServletRequest request) {
         Object stored = request.getAttribute(ATTRIBUTE);
         if (stored instanceof String value && !value.isBlank()) {
@@ -33,6 +38,7 @@ public final class CorrelationId {
         return fromHeaderOrRandom(request);
     }
 
+    /** The inbound {@link #HEADER} value, trimmed, or a freshly generated UUID when absent or blank. */
     public static String fromHeaderOrRandom(HttpServletRequest request) {
         String header = request.getHeader(HEADER);
         if (header != null && !header.isBlank()) {

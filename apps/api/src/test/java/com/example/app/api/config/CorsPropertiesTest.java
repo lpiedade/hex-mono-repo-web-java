@@ -6,6 +6,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
+/**
+ * CORS stays off until an origin is listed, and a credentialed wildcard is refused at
+ * startup rather than served.
+ */
 class CorsPropertiesTest {
 
     @Test

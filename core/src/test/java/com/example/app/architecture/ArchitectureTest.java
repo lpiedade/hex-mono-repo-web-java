@@ -151,7 +151,7 @@ class ArchitectureTest {
     void theRingsHold() {
         // src/main only: every invariant here is stated about shipped code. DoNotIncludeTests
         // filters by path (.../target/test-classes/...), which is where core's tests and the
-        // fixtures compile to. DoNotIncludeJars must NOT be added — see ADR-015.
+        // fixtures compile to.
         JavaClasses core = new ClassFileImporter()
                 .withImportOption(new ImportOption.DoNotIncludeTests())
                 .importPackages(BASE_PACKAGE);

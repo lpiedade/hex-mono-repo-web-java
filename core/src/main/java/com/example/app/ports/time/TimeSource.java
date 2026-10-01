@@ -14,5 +14,11 @@ import java.time.Instant;
  */
 @FunctionalInterface
 public interface TimeSource {
+
+    /**
+     * The current instant.
+     *
+     * @return the wall-clock instant at the time of the call
+     */
     Instant now();
 }

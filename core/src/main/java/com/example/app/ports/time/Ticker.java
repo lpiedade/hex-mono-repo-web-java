@@ -12,5 +12,12 @@ package com.example.app.ports.time;
  */
 @FunctionalInterface
 public interface Ticker {
+
+    /**
+     * The current reading of the counter.
+     *
+     * @return nanoseconds from an arbitrary origin; meaningful only as the difference
+     *         between two readings of the same ticker
+     */
     long read();
 }

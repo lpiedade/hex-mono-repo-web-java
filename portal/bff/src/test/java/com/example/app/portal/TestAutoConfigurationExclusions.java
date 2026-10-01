@@ -8,6 +8,10 @@ package com.example.app.portal;
  * the test classpath. The BFF has no database, so without these exclusions its context
  * would try to build a datasource it has no URL for. The co-booted API is a separate
  * context and keeps its own.
+ *
+ * <p>A test's {@code spring.autoconfigure.exclude} replaces the one in the BFF's
+ * {@code application.yml} rather than adding to it, so that file's own exclusion,
+ * {@code UserDetailsServiceAutoConfiguration}, is repeated here.
  */
 public final class TestAutoConfigurationExclusions {
 

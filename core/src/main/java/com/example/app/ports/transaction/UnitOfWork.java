@@ -16,10 +16,20 @@ import java.util.function.Supplier;
  */
 public interface UnitOfWork {
 
-    /** Runs {@code work} atomically and returns its result. */
+    /**
+     * Runs {@code work} atomically and returns its result.
+     *
+     * @param <T>  the type of the result
+     * @param work the port calls that make one decision
+     * @return what {@code work} returned, once the unit has committed
+     */
     <T> T inTransaction(Supplier<T> work);
 
-    /** Runs {@code work} atomically. */
+    /**
+     * Runs {@code work} atomically.
+     *
+     * @param work the port calls that make one decision
+     */
     default void inTransaction(Runnable work) {
         inTransaction(() -> {
             work.run();

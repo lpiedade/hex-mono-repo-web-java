@@ -103,6 +103,8 @@ class ItemCatalogTest {
     @Test
     void anItemThatVanishesBetweenReadAndWriteIsNotFound() {
         catalog.create("Widget", null);
+        // The read inside the unit still finds the item; the write then reports no row, as
+        // when a concurrent delete lands between the two.
         store.loseUpdates = true;
 
         assertThatThrownBy(() -> catalog.update(FIRST, "Gadget", null)).isInstanceOf(ItemNotFoundException.class);

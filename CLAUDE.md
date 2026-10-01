@@ -186,6 +186,15 @@ last measurement, and moving one is an edit to the POM (or `vite.config.ts`)
 and to [`docs/performance/coverage-ratchet.md`](docs/performance/coverage-ratchet.md)
 in the same change ([ADR-019](docs/adr/ADR-019-coverage-ratchet-not-a-target.md)).
 
+`mvn clean verify` also lints every module's main-source Javadoc
+(`maven-javadoc-plugin`, `javadoc-no-fork` at `verify`, warnings fail the
+build). Everywhere, every comment present must be valid — HTML, `{@link}`
+targets, `@param` names — under `doclint all,-missing`; `core` runs
+`doclint all` at protected visibility, so its public API must also be fully
+documented. The generated contract packages are excluded. A `core` ring root
+(`domain`, `flows`, `ports`) gets no `package-info.java`: javac compiles it to
+a class, and ArchUnit's rule 6 forbids any class in a ring's root package.
+
 The `*IT` suites that drive the API over real HTTP are the safety net for any
 move between modules: they exercise a subdomain end to end and should not need
 editing when its classes change package.
