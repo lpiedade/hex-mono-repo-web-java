@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import org.springframework.http.MediaType;
+import org.springframework.util.StreamUtils;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -73,6 +74,8 @@ public record BffProblem(
         response.setStatus(status);
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        objectMapper.writeValue(response.getOutputStream(), this);
+        // Left open, as Spring MVC does: a closed servlet stream completes the response
+        // before BffRequestLogFilter writes its access line.
+        objectMapper.writeValue(StreamUtils.nonClosing(response.getOutputStream()), this);
     }
 }

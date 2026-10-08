@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import org.springframework.http.MediaType;
+import org.springframework.util.StreamUtils;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -32,6 +33,9 @@ public final class ProblemDetailsWriter {
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setHeader(CorrelationId.HEADER, correlationId);
-        objectMapper.writeValue(response.getOutputStream(), body);
+        // Jackson closes the stream it writes to, and a closed servlet stream completes
+        // the response: the client would hold it before RequestLogFilter writes the access
+        // line. Leaving it open lets the container finish it, as Spring MVC does.
+        objectMapper.writeValue(StreamUtils.nonClosing(response.getOutputStream()), body);
     }
 }
