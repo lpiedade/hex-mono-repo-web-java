@@ -351,8 +351,12 @@ jobs:
                    "jq field name is probably wrong.  Building to stay safe."
               exit 0
             fi
+            # Not `docs/*`.  docs/ holds no build input (ADR-028), but that is a
+            # convention nothing checks, so the skip does not lean on it: only
+            # Markdown counts as docs, and anything else under docs/ builds.
+            # `*.md` covers docs/ too — in a case pattern `*` matches `/`.
             case "$f" in
-              docs/*|*.md|LICENSE|.github/ISSUE_TEMPLATE/*)
+              *.md|LICENSE|.github/ISSUE_TEMPLATE/*)
                 ;;
               *)
                 echo "build=true" >> "$GITHUB_OUTPUT"
