@@ -73,14 +73,21 @@ the overall style; start there. Domain vocabulary lives in
 
 ### Contracts and persistence
 
-- **The contract comes first.** `docs/arch/api-layer/openapi-v1.yaml` (the API)
-  and `portal-api-v1.yaml` (browser → BFF) are hand-written and authoritative;
-  server models, the CLI client and the SPA's types are generated from them.
-  Change the contract, regenerate, then follow the compiler.
+- **The contract comes first.** `apps/api/src/main/openapi/openapi-v1.yaml`
+  (the API) and `portal/bff/src/main/openapi/portal-api-v1.yaml` (browser →
+  BFF) are hand-written and authoritative; server models, the CLI client and
+  the SPA's types are generated from them. Change the contract, regenerate,
+  then follow the compiler.
   ([ADR-012](docs/adr/ADR-012-generated-contracts-and-remote-frontend-state.md))
   - `ContractPathsAreServedTest` fails when the API contract declares a path no
     controller maps; `BffContractParityTest` when the portal contract proxies an
     operation the API contract does not declare.
+- **`docs/` is never a build input.** No POM, npm script, test or import reads
+  a file under `docs/`; a file the build reads lives in the module that owns
+  it, which is why each contract sits beside the module that serves it.
+  Nothing checks this — it is held in review. CI's docs-only skip counts only
+  Markdown as docs, so a slip there still builds unless the file is `.md`.
+  ([ADR-028](docs/adr/ADR-028-docs-is-never-a-build-input.md))
 - **The path mirrors the aggregate root.** A resource with its own identity and
   an independent lifecycle is a top-level collection and names its relations in
   the body. A resource that cannot exist without its parent and has no

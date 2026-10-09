@@ -15,7 +15,7 @@ import tools.jackson.dataformat.yaml.YAMLMapper;
 
 /**
  * Serves the authoritative OpenAPI contract. The published document is
- * {@code docs/arch/api-layer/openapi-v1.yaml} — the same file the response models are
+ * {@code apps/api/src/main/openapi/openapi-v1.yaml} — the same file the response models are
  * generated from (ADR-012) — copied onto the classpath by the build, so the served bytes
  * and the generated models never drift. springdoc is deliberately not used: the
  * contract is authored, not derived from controllers.

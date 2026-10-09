@@ -60,7 +60,7 @@ paths:
             X-Correlation-ID: { $ref: "#/components/headers/CorrelationId" }
           content:
             application/json:
-              schema: { $ref: "openapi-v1.yaml#/components/schemas/ItemList" }
+              schema: { $ref: "../../../../../apps/api/src/main/openapi/openapi-v1.yaml#/components/schemas/ItemList" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Bff503" }
@@ -73,13 +73,13 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: "openapi-v1.yaml#/components/schemas/ItemRequest" }
+            schema: { $ref: "../../../../../apps/api/src/main/openapi/openapi-v1.yaml#/components/schemas/ItemRequest" }
       responses:
         "201":
           description: The created item.
           content:
             application/json:
-              schema: { $ref: "openapi-v1.yaml#/components/schemas/Item" }
+              schema: { $ref: "../../../../../apps/api/src/main/openapi/openapi-v1.yaml#/components/schemas/Item" }
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
@@ -102,7 +102,7 @@ paths:
           description: The item.
           content:
             application/json:
-              schema: { $ref: "openapi-v1.yaml#/components/schemas/Item" }
+              schema: { $ref: "../../../../../apps/api/src/main/openapi/openapi-v1.yaml#/components/schemas/Item" }
         "401": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Bff503" }
@@ -115,13 +115,13 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: "openapi-v1.yaml#/components/schemas/ItemRequest" }
+            schema: { $ref: "../../../../../apps/api/src/main/openapi/openapi-v1.yaml#/components/schemas/ItemRequest" }
       responses:
         "200":
           description: The updated item.
           content:
             application/json:
-              schema: { $ref: "openapi-v1.yaml#/components/schemas/Item" }
+              schema: { $ref: "../../../../../apps/api/src/main/openapi/openapi-v1.yaml#/components/schemas/Item" }
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
@@ -152,7 +152,7 @@ paths:
           description: Subject and effective roles.
           content:
             application/json:
-              schema: { $ref: "openapi-v1.yaml#/components/schemas/UserContext" }
+              schema: { $ref: "../../../../../apps/api/src/main/openapi/openapi-v1.yaml#/components/schemas/UserContext" }
         "401": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Bff503" }
 
@@ -167,7 +167,7 @@ paths:
           description: Version, commit and build time of the API.
           content:
             application/json:
-              schema: { $ref: "openapi-v1.yaml#/components/schemas/ApiBuildInfo" }
+              schema: { $ref: "../../../../../apps/api/src/main/openapi/openapi-v1.yaml#/components/schemas/ApiBuildInfo" }
         "401": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Bff503" }
 
@@ -226,7 +226,7 @@ components:
       description: A Problem Details body, from the API or the BFF.
       content:
         application/problem+json:
-          schema: { $ref: "openapi-v1.yaml#/components/schemas/ProblemDetails" }
+          schema: { $ref: "../../../../../apps/api/src/main/openapi/openapi-v1.yaml#/components/schemas/ProblemDetails" }
     Bff503:
       description: The application API is unreachable.
       content:
@@ -251,4 +251,4 @@ components:
       required: [portalApiVersion, build]
       properties:
         portalApiVersion: { type: integer }
-        build: { $ref: "openapi-v1.yaml#/components/schemas/BuildCoordinates" }
+        build: { $ref: "../../../../../apps/api/src/main/openapi/openapi-v1.yaml#/components/schemas/BuildCoordinates" }

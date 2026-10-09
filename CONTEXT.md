@@ -114,8 +114,9 @@ _Avoid_: error, port exception, port error
 ### The wire
 
 **Contract**:
-A hand-maintained OpenAPI document in `docs/arch/api-layer/` —
-`openapi-v1.yaml` (application API) or `portal-api-v1.yaml` (browser to BFF).
+A hand-maintained OpenAPI document owned by the module that serves it —
+`apps/api/src/main/openapi/openapi-v1.yaml` (application API) or
+`portal/bff/src/main/openapi/portal-api-v1.yaml` (browser to BFF).
 Code is generated from it; it is never generated from code.
 _Avoid_: spec (that is a functional specification), schema, swagger
 

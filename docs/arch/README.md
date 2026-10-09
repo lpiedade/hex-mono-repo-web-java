@@ -26,8 +26,8 @@ truth lives. See [`system-design/README.md`](system-design/README.md).
 | Document | Scope |
 | --- | --- |
 | [Module Dependency Map](module-dependency-map.md) | Maven module graph, runtime communication paths, and enforced architectural constraints |
-| [Application API Contract](api-layer/openapi-v1.yaml) | `openapi-v1.yaml` — the authoritative REST contract (`/api/v1`). The API generates its models and the CLI its client from it; served verbatim at `/v3/api-docs.yaml` |
-| [Portal API Contract](api-layer/portal-api-v1.yaml) | `portal-api-v1.yaml` — the browser-to-BFF surface (`/app/bff/v1`), referencing the API's schemas |
+| [Application API Contract](../../apps/api/src/main/openapi/openapi-v1.yaml) | `openapi-v1.yaml` — the authoritative REST contract (`/api/v1`). The API generates its models and the CLI its client from it; served verbatim at `/v3/api-docs.yaml` |
+| [Portal API Contract](../../portal/bff/src/main/openapi/portal-api-v1.yaml) | `portal-api-v1.yaml` — the browser-to-BFF surface (`/app/bff/v1`), referencing the API's schemas |
 | [Portal BFF Design](api-layer/portal-api-v1-bff.md) | How the BFF proxies, authenticates, protects against CSRF, and maps errors behind the portal contract |
 | [Operational Database — Physical Data Model](data-layer/operational-database-diagram.md) | Entity-relationship diagram, tables, constraints and indexes of the application database |
 | [Identity and Authentication](security/identity-and-authentication.md) | The API's `jwt` and `dev-token` modes, the BFF's `oidc` and `dev` modes, roles, and what `GET /user-context` answers |

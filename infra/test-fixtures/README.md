@@ -28,6 +28,6 @@ the test that proves it valid.
 ## Adding a dataset
 
 1. Put the file under `dev-data/`, one JSON array per resource, each element a
-   valid request body of the contract (`docs/arch/api-layer/openapi-v1.yaml`).
+   valid request body of the contract (`apps/api/src/main/openapi/openapi-v1.yaml`).
 2. Teach `infra/scripts/seed-dev-data.sh` to post it, in dependency order.
 3. Extend `DevDataFixtureIT` to load it.

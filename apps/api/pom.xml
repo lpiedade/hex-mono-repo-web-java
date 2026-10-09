@@ -15,7 +15,7 @@
     <name>App :: API</name>
     <description>
         Spring Boot HTTP inbound adapter and composition root (ADR-007). Exposes
-        /api/v1. Response models are generated from docs/arch/api-layer/openapi-v1.yaml
+        /api/v1. Response models are generated from src/main/openapi/openapi-v1.yaml
         (ADR-012); controllers are thin and delegate to core.
     </description>
 
@@ -166,7 +166,7 @@
                             <outputDirectory>${project.build.outputDirectory}/openapi</outputDirectory>
                             <resources>
                                 <resource>
-                                    <directory>${project.basedir}/../../docs/arch/api-layer</directory>
+                                    <directory>${project.basedir}/src/main/openapi</directory>
                                     <includes>
                                         <include>openapi-v1.yaml</include>
                                     </includes>
@@ -192,7 +192,7 @@
                             <goal>generate</goal>
                         </goals>
                         <configuration>
-                            <inputSpec>${project.basedir}/../../docs/arch/api-layer/openapi-v1.yaml</inputSpec>
+                            <inputSpec>${project.basedir}/src/main/openapi/openapi-v1.yaml</inputSpec>
                             <generatorName>spring</generatorName>
                             <library>spring-boot</library>
                             <output>${project.build.directory}/generated-sources/openapi</output>

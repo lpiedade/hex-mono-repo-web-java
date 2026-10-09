@@ -4,8 +4,8 @@
 - Decisions: [ADR-010](../../adr/ADR-010-oidc-server-side-session-and-browser-security.md)
   (browser and BFF), [ADR-011](../../adr/ADR-011-jwt-resource-server-and-roles.md)
   (API)
-- Contracts: [`openapi-v1.yaml`](../api-layer/openapi-v1.yaml),
-  [`portal-api-v1.yaml`](../api-layer/portal-api-v1.yaml)
+- Contracts: [`openapi-v1.yaml`](../../../apps/api/src/main/openapi/openapi-v1.yaml),
+  [`portal-api-v1.yaml`](../../../portal/bff/src/main/openapi/portal-api-v1.yaml)
 
 ## 1. Purpose
 

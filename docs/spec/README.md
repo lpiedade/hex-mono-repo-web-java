@@ -101,8 +101,10 @@ true before the capability is complete. At a minimum:
 
 - every acceptance criterion has reproducible evidence — an automated test that
   runs in `mvn clean verify` (or the portal's test run), never a skipped one;
-- the contracts in [`../arch/api-layer/`](../arch/api-layer/) and the
-  specification agree;
+- the contracts —
+  [`openapi-v1.yaml`](../../apps/api/src/main/openapi/openapi-v1.yaml) and
+  [`portal-api-v1.yaml`](../../portal/bff/src/main/openapi/portal-api-v1.yaml) —
+  and the specification agree;
 - the ADRs the capability requires are `Accepted`;
 - the feature register rows for the specification carry their result and
   evidence.

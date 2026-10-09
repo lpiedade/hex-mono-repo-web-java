@@ -1,11 +1,13 @@
 # Portal BFF Design — portalApiVersion 1
 
 - Status: Reference
-- Machine-readable contract: [`portal-api-v1.yaml`](portal-api-v1.yaml) — the
-  authoritative OpenAPI 3.1 document the SPA's TypeScript types are generated
-  from. It reuses the application API's schemas by `$ref` into
-  [`openapi-v1.yaml`](openapi-v1.yaml); this document is the prose rationale, and
-  the contract wins wherever the two disagree.
+- Machine-readable contract:
+  [`portal-api-v1.yaml`](../../../portal/bff/src/main/openapi/portal-api-v1.yaml)
+  — the authoritative OpenAPI 3.1 document the SPA's TypeScript types are
+  generated from. It reuses the application API's schemas by `$ref` into
+  [`openapi-v1.yaml`](../../../apps/api/src/main/openapi/openapi-v1.yaml); this
+  document is the prose rationale, and the contract wins wherever the two
+  disagree.
 - Decisions: [ADR-009](../../adr/ADR-009-react-typescript-and-spring-bff.md),
   [ADR-010](../../adr/ADR-010-oidc-server-side-session-and-browser-security.md),
   [ADR-012](../../adr/ADR-012-generated-contracts-and-remote-frontend-state.md)
@@ -73,9 +75,11 @@ BFF returns the API's status and body unchanged, plus the envelope headers (§5)
 
 Every proxied route is a 1:1 mapping: the BFF path with `/app/bff/v1` replaced by
 `/api/v1`. The authoritative per-operation mapping is the `x-proxies-to`
-extension on each operation in [`portal-api-v1.yaml`](portal-api-v1.yaml).
+extension on each operation in
+[`portal-api-v1.yaml`](../../../portal/bff/src/main/openapi/portal-api-v1.yaml).
 `BffContractParityTest` fails the build when an `x-proxies-to` names an operation
-that [`openapi-v1.yaml`](openapi-v1.yaml) does not declare, so the BFF cannot
+that [`openapi-v1.yaml`](../../../apps/api/src/main/openapi/openapi-v1.yaml) does
+not declare, so the BFF cannot
 advertise a route the API does not serve.
 
 The template's surface:

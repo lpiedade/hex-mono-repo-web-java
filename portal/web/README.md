@@ -19,7 +19,7 @@ Run from `portal/web/` (Node 20):
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Vite dev server; proxies `/app/bff`, `/app/health`, `/app/about` to the BFF on `localhost:8081`. |
-| `npm run generate:api` | Regenerates `src/shared/api/generated/portal-api.d.ts` from `../../docs/arch/api-layer/portal-api-v1.yaml`. Runs before `build`, `test`, `test:coverage`, `typecheck` and `lint`. |
+| `npm run generate:api` | Regenerates `src/shared/api/generated/portal-api.d.ts` from `../bff/src/main/openapi/portal-api-v1.yaml`. Runs before `build`, `test`, `test:coverage`, `typecheck` and `lint`. |
 | `npm run typecheck` | `tsc --noEmit` (strict) over both projects: `tsconfig.json` (the browser code) and `tsconfig.node.json` (the Playwright suites, their config and the Vite config). |
 | `npm run lint` | ESLint, type-aware — typescript-eslint, react-hooks, react-refresh, jsx-a11y, and the layering rules below — with `--max-warnings 0`. |
 | `npm run format` / `npm run format:check` | Prettier: write the formatting / fail on a file that differs. |
@@ -165,8 +165,9 @@ code two slices share moves *down*, never sideways.
 
 For a new resource `<name>` (plural, English), in this order:
 
-1. **Contract.** Add the operations to `docs/arch/api-layer/openapi-v1.yaml` and
-   their proxied twins, with `x-proxies-to`, to `portal-api-v1.yaml`.
+1. **Contract.** Add the operations to `apps/api/src/main/openapi/openapi-v1.yaml`
+   and their proxied twins, with `x-proxies-to`, to
+   `portal/bff/src/main/openapi/portal-api-v1.yaml`.
 2. **Generate.** `npm run generate:api`, then `npm run typecheck`.
 3. **Calls.** Add the typed functions to `src/shared/api/client.ts` and export
    them, with the schema types, from `src/shared/api/index.ts`.

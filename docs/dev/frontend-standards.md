@@ -514,8 +514,9 @@ proves those rules still fire against planted violations, and
 
 For a resource `<name>` (plural, English), in this order:
 
-1. **Contract.** Add the operations to `docs/arch/api-layer/openapi-v1.yaml`
-   and their proxied twins, with `x-proxies-to`, to `portal-api-v1.yaml`. The
+1. **Contract.** Add the operations to `apps/api/src/main/openapi/openapi-v1.yaml`
+   and their proxied twins, with `x-proxies-to`, to
+   `portal/bff/src/main/openapi/portal-api-v1.yaml`. The
    path shape follows
    [ADR-020](../adr/ADR-020-resource-shape-and-url-nesting.md); the BFF gains
    nothing to reshape (`portal/CLAUDE.md`, *The BFF stays thin*).

@@ -22,7 +22,7 @@ final class ContractDocument {
     /** Every {@code paths} key of the contract, {@code /api/v1} prefix excluded. */
     @SuppressWarnings("unchecked")
     static List<String> declaredPaths() throws IOException {
-        Path contract = Path.of("..", "..", "docs", "arch", "api-layer", "openapi-v1.yaml").normalize();
+        Path contract = Path.of("src", "main", "openapi", "openapi-v1.yaml");
         assertThat(Files.isReadable(contract))
                 .as("contract not found at %s", contract.toAbsolutePath())
                 .isTrue();
