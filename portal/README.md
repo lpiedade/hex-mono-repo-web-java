@@ -18,8 +18,8 @@ browser ──/app/bff/v1/**──▶ BFF ──/api/v1/** + Bearer token──�
 The BFF is a thin authenticated proxy. It strips `/app/bff/v1`, forwards to
 `/api/v1`, and attaches the upstream bearer token itself — the browser never
 holds one. It reshapes nothing, so every proxied body is the API's, which is
-why [`portal-api-v1.yaml`](../docs/arch/api-layer/portal-api-v1.yaml) references
-the schemas of [`openapi-v1.yaml`](../docs/arch/api-layer/openapi-v1.yaml)
+why [`portal-api-v1.yaml`](bff/src/main/openapi/portal-api-v1.yaml) references
+the schemas of [`openapi-v1.yaml`](../apps/api/src/main/openapi/openapi-v1.yaml)
 instead of copying them. Every response carries `X-Portal-Api-Version` and
 `X-Correlation-ID`; an unreachable API is a `503` Problem Details body with
 code `UPSTREAM_UNAVAILABLE`, never a hang.

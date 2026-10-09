@@ -47,7 +47,7 @@ template's aggregate `items` is `entities/item`, the `edit-item` and
 ## Contracts and remote state
 
 The SPA's types are generated from
-[`portal-api-v1.yaml`](../docs/arch/api-layer/portal-api-v1.yaml) by
+[`portal-api-v1.yaml`](bff/src/main/openapi/portal-api-v1.yaml) by
 `npm run generate:api`, and every call goes through the typed client in
 `web/src/shared/api/client.ts` (ADR-012). `apiContract.test.ts` fails when the client
 calls a route the contract does not declare; `tsc` fails when a screen reads a

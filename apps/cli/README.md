@@ -2,8 +2,8 @@
 
 A command-line client of the application API (ADR-026). It reaches the
 application only over HTTP, through a client generated from
-`docs/arch/api-layer/openapi-v1.yaml`, and declares no other module of this
-repository — the enforcer fails `mvn validate` if it does.
+`apps/api/src/main/openapi/openapi-v1.yaml`, and declares no other module of
+this repository — the enforcer fails `mvn validate` if it does.
 
 ```bash
 mvn -pl apps/cli -am package

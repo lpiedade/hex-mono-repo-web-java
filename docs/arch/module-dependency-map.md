@@ -43,8 +43,8 @@ graph TD
     bff["<b>portal/bff</b>\nSpring Boot 4 BFF\n(no core dependency)"]
     web["<b>portal/web</b>\nReact + TypeScript + Vite SPA\n(npm project)"]
 
-    contract[/"docs/arch/api-layer/openapi-v1.yaml"/]
-    pcontract[/"docs/arch/api-layer/portal-api-v1.yaml"/]
+    contract[/"apps/api/src/main/openapi/openapi-v1.yaml"/]
+    pcontract[/"portal/bff/src/main/openapi/portal-api-v1.yaml"/]
 
     pers -->|compile| core
     jvm  -->|compile| core
@@ -206,5 +206,5 @@ npm project under base path `/app/`, with types generated from
 
 | File | Role |
 | --- | --- |
-| `docs/arch/api-layer/openapi-v1.yaml` | The application API contract. Hand-maintained and authoritative; `apps/api` generates its models and `apps/cli` its client from it; served verbatim at runtime |
-| `docs/arch/api-layer/portal-api-v1.yaml` | The browser-to-BFF contract. References the API's schemas rather than duplicating them; the SPA's types are generated from it |
+| `apps/api/src/main/openapi/openapi-v1.yaml` | The application API contract. Hand-maintained and authoritative; `apps/api` generates its models and `apps/cli` its client from it; served verbatim at runtime |
+| `portal/bff/src/main/openapi/portal-api-v1.yaml` | The browser-to-BFF contract. References the API's schemas rather than duplicating them; the SPA's types are generated from it |

@@ -16,7 +16,7 @@ from the contract, and owns security. It holds no domain logic.
 
 ## The contract comes first
 
-`docs/arch/api-layer/openapi-v1.yaml` is hand-written and authoritative. The
+`src/main/openapi/openapi-v1.yaml` is hand-written and authoritative. The
 build generates the response models from it and copies it onto the classpath,
 where `/v3/api-docs.yaml` and `/v3/api-docs` serve it verbatim.
 `ContractPathsAreServedTest` fails when a declared path has no controller, and

@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: Template baseline
-- Related: [ADR-002](ADR-002-layered-core-and-apps-boundary.md), [ADR-007](ADR-007-spring-boot-http-api-composition-root.md), [ADR-009](ADR-009-react-typescript-and-spring-bff.md), [ADR-022](ADR-022-contract-versions-allocated-at-delivery.md), [ADR-024](ADR-024-sorting-follows-the-collection.md), [ADR-026](ADR-026-cli-is-a-client-of-the-api.md), [ADR-027](ADR-027-feature-sliced-design-for-the-spa.md)
+- Related: [ADR-002](ADR-002-layered-core-and-apps-boundary.md), [ADR-007](ADR-007-spring-boot-http-api-composition-root.md), [ADR-009](ADR-009-react-typescript-and-spring-bff.md), [ADR-022](ADR-022-contract-versions-allocated-at-delivery.md), [ADR-024](ADR-024-sorting-follows-the-collection.md), [ADR-026](ADR-026-cli-is-a-client-of-the-api.md), [ADR-027](ADR-027-feature-sliced-design-for-the-spa.md), [ADR-028](ADR-028-docs-is-never-a-build-input.md)
 
 ## Context
 
@@ -21,12 +21,14 @@ produce inconsistent loading, retry, error, and authorization behaviour.
 
 ### Contracts are the source, and code is generated from them
 
-- `docs/arch/api-layer/openapi-v1.yaml` is hand-maintained and authoritative
-  for the API. The API serves it at `/v3/api-docs.yaml`.
+- Each contract lives in the module that serves it, never under `docs/`
+  ([ADR-028](ADR-028-docs-is-never-a-build-input.md)).
+- `apps/api/src/main/openapi/openapi-v1.yaml` is hand-maintained and
+  authoritative for the API. The API serves it at `/v3/api-docs.yaml`.
   `ContractPathsAreServedTest` fails the build when a declared path has no
   controller mapping.
-- `docs/arch/api-layer/portal-api-v1.yaml` is the browser-to-BFF contract. Its
-  schemas `$ref` the API's rather than restating them, and
+- `portal/bff/src/main/openapi/portal-api-v1.yaml` is the browser-to-BFF
+  contract. Its schemas `$ref` the API's rather than restating them, and
   `BffContractParityTest` fails when an `x-proxies-to` upstream is not declared
   in `openapi-v1.yaml`.
 - Java models are generated from `openapi-v1.yaml` into

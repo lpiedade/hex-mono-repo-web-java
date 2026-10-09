@@ -90,7 +90,7 @@ section says what the operations mean.>
 
 | Operation | Path | Contract |
 | --- | --- | --- |
-| <List> | `GET /api/v1/<resources>` | `docs/arch/api-layer/openapi-v1.yaml` |
+| <List> | `GET /api/v1/<resources>` | `apps/api/src/main/openapi/openapi-v1.yaml` |
 
 ## 8. Result states and error contract
 

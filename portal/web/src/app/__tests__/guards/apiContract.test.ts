@@ -5,7 +5,7 @@ import { parse } from "yaml";
 // this suite, and `?raw` keeps it free of `@types/node` — which this project
 // keeps out of `tsconfig.json`'s `types` so browser code cannot reach for Node
 // globals.
-import contractYaml from "../../../../../../docs/arch/api-layer/portal-api-v1.yaml?raw";
+import contractYaml from "../../../../../bff/src/main/openapi/portal-api-v1.yaml?raw";
 // eslint-disable-next-line boundaries/dependencies -- read as text, not used as an API: the calls themselves are what this guard checks.
 import clientSource from "@/shared/api/client.ts?raw";
 import { routes } from "@/app/router/router";

@@ -30,10 +30,14 @@ final class BffContractParityTest {
     private static final String API_PREFIX = "/api/v1";
     private static final Set<String> METHODS = Set.of("get", "put", "post", "delete", "patch", "head", "options");
 
+    /** Relative to the {@code portal} module, the working directory of its tests. */
+    private static final Path API_CONTRACT = Path.of("..", "apps", "api", "src", "main", "openapi", "openapi-v1.yaml");
+    private static final Path PORTAL_CONTRACT = Path.of("bff", "src", "main", "openapi", "portal-api-v1.yaml");
+
     @Test
     void everyPortalOperationTargetsAnOperationTheApiDeclares() throws IOException {
-        Set<String> upstream = operationsOf(load("openapi-v1.yaml"));
-        Map<String, String> portal = proxiedOperations(load("portal-api-v1.yaml"));
+        Set<String> upstream = operationsOf(load(API_CONTRACT));
+        Map<String, String> portal = proxiedOperations(load(PORTAL_CONTRACT));
 
         assertThat(portal).as("the portal contract proxies nothing — the parser is broken").isNotEmpty();
         List<String> unserved = new ArrayList<>();
@@ -52,7 +56,7 @@ final class BffContractParityTest {
     @Test
     void everyDeclaredUpstreamIsThePrefixSwapTheProxyPerforms() throws IOException {
         List<String> mismatched = new ArrayList<>();
-        proxiedOperations(load("portal-api-v1.yaml")).forEach((operation, target) -> {
+        proxiedOperations(load(PORTAL_CONTRACT)).forEach((operation, target) -> {
             String[] declared = operation.split(" ", 2);
             String swapped = declared[0] + " " + declared[1].replaceFirst("^" + BFF_PREFIX, API_PREFIX);
             if (!swapped.equals(target)) {
@@ -97,8 +101,8 @@ final class BffContractParityTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<String, Object> load(String file) throws IOException {
-        Path path = Path.of("..", "docs", "arch", "api-layer", file).normalize();
+    private static Map<String, Object> load(Path contract) throws IOException {
+        Path path = contract.normalize();
         assertThat(Files.isReadable(path)).as("contract not found at %s", path.toAbsolutePath()).isTrue();
         try (InputStream in = Files.newInputStream(path)) {
             return (Map<String, Object>) new Yaml().load(in);

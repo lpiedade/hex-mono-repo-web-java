@@ -6,7 +6,7 @@
   "type": "module",
   "description": "Portal SPA (React, MUI, React Query), served same-origin behind the Spring BFF.",
   "scripts": {
-    "generate:api": "openapi-typescript ../../docs/arch/api-layer/portal-api-v1.yaml -o src/shared/api/generated/portal-api.d.ts",
+    "generate:api": "openapi-typescript ../bff/src/main/openapi/portal-api-v1.yaml -o src/shared/api/generated/portal-api.d.ts",
     "dev": "vite",
     "prebuild": "npm run generate:api",
     "build": "tsc --noEmit && vite build",

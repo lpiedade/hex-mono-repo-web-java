@@ -113,8 +113,8 @@ Never pass `-T` to Maven here — see [`CLAUDE.md`](CLAUDE.md#validation).
 1. Write or extend the spec in [`docs/spec/`](docs/spec/README.md) and register
    the feature in [`docs/plans/feature-register.md`](docs/plans/feature-register.md).
 2. Open issues from the templates in `.github/ISSUE_TEMPLATE/`.
-3. Change the contract first — `docs/arch/api-layer/openapi-v1.yaml`, and
-   `portal-api-v1.yaml` if the browser needs it.
+3. Change the contract first — `apps/api/src/main/openapi/openapi-v1.yaml`, and
+   `portal/bff/src/main/openapi/portal-api-v1.yaml` if the browser needs it.
 4. `core`: domain → port → flow, tested with fakes of the ports.
 5. `adapters/persistence`: a migration and the repository, with an `*IT`.
 6. `apps/api`: wire the flow in `CoreConfig`, add the controller, declare the

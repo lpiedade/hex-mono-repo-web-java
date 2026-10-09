@@ -25,7 +25,7 @@ specification (`docs/spec/FS-0XX-*.md`) it serves.
 | --- | --- |
 | What the product must do, and how it is accepted | [`docs/spec/`](../../spec/) |
 | A decision with alternatives and trade-offs | [`docs/adr/`](../../adr/) |
-| The system as it is — contracts, schema, modules | [`api-layer/`](../api-layer/), [`data-layer/`](../data-layer/), [`module-dependency-map.md`](../module-dependency-map.md) |
+| The system as it is — contract design, schema, modules | [`api-layer/`](../api-layer/), [`data-layer/`](../data-layer/), [`module-dependency-map.md`](../module-dependency-map.md) |
 
 ## How a design record stays honest
 

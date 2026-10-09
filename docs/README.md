@@ -8,7 +8,7 @@ root.
 | Directory | Purpose | Start with |
 | --- | --- | --- |
 | [`spec/`](spec/) | Functional specifications — what the product must do, and the acceptance evidence a capability requires | [`FS-000-template.md`](spec/FS-000-template.md) |
-| [`arch/`](arch/) | Architecture — module map, contracts, data model, security, and design records | [`module-dependency-map.md`](arch/module-dependency-map.md) |
+| [`arch/`](arch/) | Architecture — module map, contract design, data model, security, and design records | [`module-dependency-map.md`](arch/module-dependency-map.md) |
 | [`adr/`](adr/) | Architecture Decision Records — significant decisions with their rationale, rejected alternatives and consequences | [`ADR-002`](adr/ADR-002-layered-core-and-apps-boundary.md), the overall style |
 | [`plans/`](plans/) | Non-normative delivery planning — feature priority and results, and the order of work | [`feature-register.md`](plans/feature-register.md) |
 | [`performance/`](performance/) | Measurements the build or the team relies on — the coverage ratchet first | [`coverage-ratchet.md`](performance/coverage-ratchet.md) |
@@ -18,12 +18,16 @@ root.
 ## The contracts
 
 The two OpenAPI documents are the source the build generates from, not
-descriptions of it:
+descriptions of it, so they live in the module that serves them rather than
+here:
 
-- [`arch/api-layer/openapi-v1.yaml`](arch/api-layer/openapi-v1.yaml) — the
-  application API (`/api/v1`).
-- [`arch/api-layer/portal-api-v1.yaml`](arch/api-layer/portal-api-v1.yaml) — the
-  browser-to-BFF surface (`/app/bff/v1`).
+- [`apps/api/src/main/openapi/openapi-v1.yaml`](../apps/api/src/main/openapi/openapi-v1.yaml)
+  — the application API (`/api/v1`).
+- [`portal/bff/src/main/openapi/portal-api-v1.yaml`](../portal/bff/src/main/openapi/portal-api-v1.yaml)
+  — the browser-to-BFF surface (`/app/bff/v1`).
+
+No file under `docs/` is read by the build: anything a build reads lives in the
+module that owns it ([ADR-028](adr/ADR-028-docs-is-never-a-build-input.md)).
 
 ## Choosing where a document goes
 
