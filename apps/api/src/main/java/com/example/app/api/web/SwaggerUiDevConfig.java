@@ -18,7 +18,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class SwaggerUiDevConfig implements WebMvcConfigurer {
 
     private static final String SWAGGER_UI_WEBJAR =
-            "classpath:/META-INF/resources/webjars/swagger-ui/5.21.0/";
+            "classpath:/META-INF/resources/webjars/swagger-ui/5.33.1/";
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {

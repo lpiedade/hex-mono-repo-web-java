@@ -14,7 +14,7 @@ Prettier.
 
 ## Commands
 
-Run from `portal/web/` (Node 20):
+Run from `portal/web/` (Node 24, as in CI):
 
 | Command | What it does |
 | --- | --- |

@@ -25,9 +25,9 @@ goals); unit tests run under surefire and need no container.
 
 **A suite that cannot find a Docker-compatible runtime fails; it does not
 skip.** No suite opts into Testcontainers' skip-when-Docker-is-missing
-behaviour, and the CI workflow (`.github/workflows/build.yaml`) checks
-`docker info` explicitly before `mvn verify`, so a missing runtime fails with a
-clear cause rather than a confusing test error.
+behaviour, and the CI workflow (`.github/workflows/build.yaml`) asks the daemon
+for its version (`docker version`) explicitly before `mvn verify`, so a missing
+runtime fails with a clear cause rather than a confusing test error.
 
 **Shared SQL and data fixtures live in `infra/test-fixtures/`** and are wired into
 the modules that need them through a `testResources` entry resolved from

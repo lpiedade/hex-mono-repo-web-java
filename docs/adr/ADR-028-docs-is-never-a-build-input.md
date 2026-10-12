@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-09
-- Related: [ADR-012](ADR-012-generated-contracts-and-remote-frontend-state.md), [ADR-026](ADR-026-cli-is-a-client-of-the-api.md)
+- Related: [ADR-012](ADR-012-generated-contracts-and-remote-frontend-state.md), [ADR-026](ADR-026-cli-is-a-client-of-the-api.md), [ADR-029](ADR-029-pull-requests-run-the-checks-they-can-reach.md)
 
 ## Context
 

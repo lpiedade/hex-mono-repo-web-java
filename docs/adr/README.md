@@ -93,3 +93,4 @@ change.
 | [ADR-026](ADR-026-cli-is-a-client-of-the-api.md) | The CLI is a client of the API, not a second composition root | Accepted |
 | [ADR-027](ADR-027-feature-sliced-design-for-the-spa.md) | The SPA is organized by Feature-Sliced Design, and its layering is linted | Accepted |
 | [ADR-028](ADR-028-docs-is-never-a-build-input.md) | `docs/` is never a build input; each contract lives in the module that serves it | Accepted |
+| [ADR-029](ADR-029-pull-requests-run-the-checks-they-can-reach.md) | A pull request runs the checks its changes can reach; the nightly runs all of them | Accepted |

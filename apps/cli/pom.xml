@@ -20,7 +20,7 @@
     </description>
 
     <properties>
-        <picocli.version>4.7.6</picocli.version>
+        <picocli.version>4.7.7</picocli.version>
         <!-- Coverage floors: docs/performance/coverage-ratchet.md -->
         <coverage.floor.instruction>0.8773</coverage.floor.instruction>
         <coverage.floor.branch>0.7741</coverage.floor.branch>
@@ -159,7 +159,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.6.0</version>
+                <version>3.6.2</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -182,6 +182,14 @@
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
                                         <exclude>META-INF/MANIFEST.MF</exclude>
+                                        <!--
+                                            Each dependency's module descriptor. The
+                                            jar runs on the class path, where none
+                                            applies, and merged they would describe
+                                            one arbitrary module.
+                                        -->
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/versions/*/module-info.class</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

@@ -15,9 +15,14 @@
 # /app/bff, /app/health and /app/about to the BFF on :8081 (ADR-017).
 #
 # Usage:
-#   infra/scripts/e2e.sh              # build, start the stack, run the journey suite
-#   infra/scripts/e2e.sh --no-build   # reuse existing exec jars
-#   infra/scripts/e2e.sh --keep-up    # leave the stack running afterwards
+#   infra/scripts/e2e.sh                  # build, start the stack, run the journey suite
+#   infra/scripts/e2e.sh --no-build       # reuse existing exec jars
+#   infra/scripts/e2e.sh --no-spa-build   # reuse the SPA bundle in portal/web/dist
+#   infra/scripts/e2e.sh --keep-up        # leave the stack running afterwards
+#
+# --no-spa-build is separate from --no-build because a bundle left over from
+# another checkout looks exactly like a fresh one. CI passes both, having built
+# and tested the jars and the bundle earlier in the same run.
 #
 # Exit code is Playwright's, so CI fails when a journey fails.
 
@@ -32,12 +37,14 @@ BFF_HEALTH="http://localhost:8081/app/health"
 BASE_URL="http://localhost:$PREVIEW_PORT/app/"
 
 KEEP_UP=0
+BUILD_SPA=1
 RUN_LOCAL_ARGS=(--no-frontend --detach)
 
 for arg in "$@"; do
   case "$arg" in
-    --no-build) RUN_LOCAL_ARGS+=(--no-build) ;;
-    --keep-up)  KEEP_UP=1 ;;
+    --no-build)     RUN_LOCAL_ARGS+=(--no-build) ;;
+    --no-spa-build) BUILD_SPA=0 ;;
+    --keep-up)      KEEP_UP=1 ;;
     -h|--help)  awk 'NR>1 { if (/^#/) { sub(/^# ?/, ""); print } else exit }' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "Unknown option: $arg" >&2; exit 2 ;;
   esac
@@ -84,10 +91,18 @@ curl -fsS -o /dev/null "$BFF_HEALTH" || {
   exit 1
 }
 
-echo "==> Building the SPA"
 cd "$FRONTEND_DIR"
 [[ -d node_modules ]] || npm ci
-npm run build
+if [[ "$BUILD_SPA" -eq 1 ]]; then
+  echo "==> Building the SPA"
+  # Warnings only: the per-file size table is a hundred lines of fonts.
+  npm run build -- --logLevel warn
+elif [[ -f dist/index.html ]]; then
+  echo "==> Reusing the SPA bundle in $FRONTEND_DIR/dist (--no-spa-build)"
+else
+  echo "--no-spa-build, but there is no bundle at $FRONTEND_DIR/dist - build it first" >&2
+  exit 1
+fi
 
 echo "==> Serving the SPA with vite preview on :$PREVIEW_PORT"
 mkdir -p "$RUN_DIR"

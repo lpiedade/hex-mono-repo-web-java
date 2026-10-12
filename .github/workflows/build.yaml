@@ -7,6 +7,10 @@ name: Build
 # a ~10s credential scan in its own job would cost a full minute on every
 # event. The scan runs before the toolchain is installed, so a leaked
 # credential fails the run in seconds instead of after a full build.
+#
+# A pull request runs the checks its changes can reach — the Java build, the
+# portal's, both or neither — and the scheduled and manual runs run every
+# check, the journey suite included (ADR-029; the scope step below).
 
 on:
   pull_request:
@@ -26,7 +30,7 @@ run-name: >-
 
 permissions:
   contents: read
-  # Needed to list a pull request's changed files for the docs-only check below.
+  # Needed to list a pull request's changed files for the scope step below.
   pull-requests: read
 
 concurrency:
@@ -64,7 +68,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       # -----------------------------------------------------------------------
       # Self-test: verify the scanner catches violations before trusting it.
@@ -103,8 +107,9 @@ jobs:
             exit 1
           fi
 
-          echo "Self-test passed — scanner detected planted literals:"
-          echo "$FOUND"
+          # The count, not the lines: the planted literals are in the fixture,
+          # and echoing them on every green run is noise.
+          echo "Self-test passed — scanner detected $(wc -l <<< "$FOUND") planted literal(s)."
 
       # -----------------------------------------------------------------------
       # Self-test: verify the filters pass legitimate shapes.
@@ -287,12 +292,32 @@ jobs:
           echo "OK — no committed literal credentials found."
 
       # -----------------------------------------------------------------------
-      # Docs-only short-circuit.
+      # Scope: which checks this run needs (ADR-029).
       #
       # The credential scan above always runs — a literal can land in an ADR or
       # a spec as easily as in code, and pattern C exists precisely because
-      # connection URLs get pasted into prose.  But a pull request that changes
-      # nothing except prose cannot change the build's outcome.
+      # connection URLs get pasted into prose.  What follows it is split by
+      # what a change can reach:
+      #
+      #   backend   Java 25, the Docker check and `mvn clean verify`.
+      #   frontend  Node, the portal's lint, format, typecheck, unit tests,
+      #             build and accessibility suite.
+      #   guard     the skipped-test guard's self-test.  The guard is the
+      #             root POM's `fail-on-skipped-tests` and the self-test runs
+      #             it in core, so a pull request runs it only when the root
+      #             POM, core's, or this workflow changes.
+      #
+      # Each changed file of a pull request is classified below.  Markdown,
+      # LICENSE and issue templates reach neither build (ADR-028).  The two
+      # OpenAPI contracts reach both: the API generates its models and the CLI
+      # its client from openapi-v1.yaml, and the SPA its types from
+      # portal-api-v1.yaml, which $refs it.  Anything the classifier does not
+      # name — this workflow, the scan's allowlist, a script — runs every
+      # check, so a path nobody listed costs time, never a skipped check.
+      #
+      # Scheduled and manual runs check main's health and run every check, the
+      # journey suite included.  So does every failure path here: a broken
+      # lookup must never be able to skip a check.
       #
       # This is deliberately a step-level skip rather than
       # `on.pull_request.paths-ignore`: paths-ignore suppresses the whole run,
@@ -300,7 +325,7 @@ jobs:
       # required status check pending forever if branch protection is ever
       # enabled here.
       # -----------------------------------------------------------------------
-      - name: Determine whether the Maven build needs to run
+      - name: Determine which checks this run needs
         id: scope
         env:
           GH_TOKEN: ${{ github.token }}
@@ -308,10 +333,13 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          # Scheduled and manual runs check main's health — always build.
+          run_everything() {
+            printf '%s\n' backend=true frontend=true guard=true >> "$GITHUB_OUTPUT"
+            echo "$1"
+          }
+
           if [[ "$EVENT_NAME" != "pull_request" ]]; then
-            echo "build=true" >> "$GITHUB_OUTPUT"
-            echo "Non-pull-request event ($EVENT_NAME) — building."
+            run_everything "Non-pull-request event ($EVENT_NAME) — running every check."
             exit 0
           fi
 
@@ -320,67 +348,73 @@ jobs:
           #
           # The exit status is checked explicitly rather than swallowed: on
           # failure `gh` prints its error body to stdout, which would otherwise
-          # flow on as if it were a file list.  Every failure path below ends in
-          # build=true — a broken lookup must never be able to skip the build.
+          # flow on as if it were a file list.
           if ! FILES_RAW=$(gh api --paginate \
                 "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[].filename'); then
-            echo "build=true" >> "$GITHUB_OUTPUT"
-            echo "::warning::Could not list the pull request's changed files —" \
-                 "building instead of skipping."
+            run_everything "::warning::Could not list the pull request's changed files — running every check."
+            exit 0
+          fi
+
+          # An empty answer means the API told us nothing useful.  Checked on
+          # the raw text: a here-string always ends in a newline, so mapfile
+          # would turn "" into one blank entry rather than none.
+          if [[ -z "$FILES_RAW" ]]; then
+            run_everything "Could not determine changed files — running every check."
             exit 0
           fi
 
           mapfile -t FILES <<< "$FILES_RAW"
 
-          # An empty list means the API told us nothing useful; build rather
-          # than skip, so a lookup failure can never silence the build.
-          if [[ ${#FILES[@]} -eq 0 ]]; then
-            echo "build=true" >> "$GITHUB_OUTPUT"
-            echo "Could not determine changed files — building."
-            exit 0
-          fi
-
+          BACKEND=false FRONTEND=false GUARD=false
           for f in "${FILES[@]}"; do
             # A blank entry means the query returned a field that does not
-            # exist.  Build, and say so loudly: silently treating it as
-            # "not docs" would still build, but the skip would be dead code
-            # nobody notices.
+            # exist.  Say so loudly: classified, it would fall through to the
+            # unclassified row and run every check anyway, and the skip would
+            # be dead code nobody notices.
             if [[ -z "$f" ]]; then
-              echo "build=true" >> "$GITHUB_OUTPUT"
-              echo "::warning::Changed-file query returned a blank path — the" \
-                   "jq field name is probably wrong.  Building to stay safe."
+              run_everything "::warning::Changed-file query returned a blank path — the jq field name is probably wrong.  Running every check."
               exit 0
             fi
-            # Not `docs/*`.  docs/ holds no build input (ADR-028), but that is a
-            # convention nothing checks, so the skip does not lean on it: only
-            # Markdown counts as docs, and anything else under docs/ builds.
-            # `*.md` covers docs/ too — in a case pattern `*` matches `/`.
+            # In a case pattern `*` matches `/`, so `*.md` covers docs/ and
+            # every module's README.  Order matters: the first match wins.
             case "$f" in
               *.md|LICENSE|.github/ISSUE_TEMPLATE/*)
                 ;;
+              apps/api/src/main/openapi/*|portal/bff/src/main/openapi/*)
+                BACKEND=true FRONTEND=true ;;
+              portal/web/*)
+                FRONTEND=true ;;
+              pom.xml|core/pom.xml)
+                BACKEND=true GUARD=true ;;
+              core/*|adapters/*|apps/*|portal/pom.xml|portal/bff/*|infra/test-fixtures/*)
+                BACKEND=true ;;
               *)
-                echo "build=true" >> "$GITHUB_OUTPUT"
-                echo "Build-relevant file changed: $f"
-                exit 0
-                ;;
+                echo "Unclassified path, running every check: $f"
+                BACKEND=true FRONTEND=true GUARD=true ;;
             esac
           done
 
-          echo "build=false" >> "$GITHUB_OUTPUT"
-          echo "Docs-only pull request (${#FILES[@]} file(s)) — skipping the Maven build."
-          printf '  %s\n' "${FILES[@]}"
+          printf '%s\n' "backend=$BACKEND" "frontend=$FRONTEND" "guard=$GUARD" >> "$GITHUB_OUTPUT"
+          echo "${#FILES[@]} changed file(s) — backend: $BACKEND, frontend: $FRONTEND, guard self-test: $GUARD."
+          if [[ "$BACKEND" == false && "$FRONTEND" == false ]]; then
+            echo "Docs-only pull request — skipping both builds:"
+            printf '  %s\n' "${FILES[@]}"
+          fi
 
       - name: Set up Java 25
-        if: steps.scope.outputs.build == 'true'
-        uses: actions/setup-java@v5
+        if: steps.scope.outputs.backend == 'true'
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "25"
           cache: maven
 
+      # One line rather than `docker info`'s seventy: the server version is
+      # what a failing Testcontainers suite needs, and the command fails when
+      # no daemon answers, which is the check.
       - name: Verify Docker availability
-        if: steps.scope.outputs.build == 'true'
-        run: docker info
+        if: steps.scope.outputs.backend == 'true'
+        run: docker version --format 'Docker server {{.Server.Version}} (API {{.Server.APIVersion}})'
 
       # -----------------------------------------------------------------------
       # Self-test: verify the skipped-test guard catches a skip before trusting
@@ -389,9 +423,14 @@ jobs:
       # would mean a silently skipped suite could once again reach BUILD
       # SUCCESS — the hole ADR-006 forbids.  The planted report is removed by
       # the `clean` in the Maven step that follows.
+      #
+      # On the scheduled and manual runs, and on a pull request that can change
+      # what it tests (the scope step's `guard`).  It costs a Maven start of
+      # its own, and on any other pull request it would re-prove a guard the
+      # change cannot reach.
       # -----------------------------------------------------------------------
       - name: Self-test — skipped-test guard must reject a planted skip
-        if: steps.scope.outputs.build == 'true'
+        if: steps.scope.outputs.backend == 'true' && steps.scope.outputs.guard == 'true'
         run: |
           REPORT="core/target/failsafe-reports/TEST-GuardSelfTest.xml"
           mkdir -p "$(dirname "$REPORT")"
@@ -416,9 +455,46 @@ jobs:
           rm -f "$REPORT" guard-selftest.log
           echo "Self-test passed — the guard rejected the planted skip and named the report."
 
+      # -----------------------------------------------------------------------
+      # Maven verify, with the log kept to what a failure needs.
+      #
+      # - Test output goes to files. Every Spring context the suites start
+      #   prints its banner and its startup log, and the suites that exercise
+      #   error paths print the stack traces they provoke: well over half of
+      #   this step's log on a green run.  Surefire and failsafe still print
+      #   each failure, its assertion and its stack, and the per-class output
+      #   is uploaded below when the build fails.
+      # - JaCoCo, antrun and the OpenAPI generator log at WARN.  Their INFO
+      #   lines (agent paths, "Executing tasks", one "writing file" per
+      #   generated model) never explain a failure; a failed coverage check,
+      #   skipped-test guard or generation still reports at WARN or ERROR.
+      #   MAVEN_OPTS, not -D on the command line: Maven's logger reads its
+      #   levels when the JVM starts, before the command line is parsed.
+      # -----------------------------------------------------------------------
       - name: Maven verify
-        if: steps.scope.outputs.build == 'true'
-        run: mvn --batch-mode --no-transfer-progress clean verify
+        if: steps.scope.outputs.backend == 'true'
+        env:
+          MAVEN_OPTS: >-
+            -Dorg.slf4j.simpleLogger.log.org.jacoco=warn
+            -Dorg.slf4j.simpleLogger.log.org.apache.maven.plugins.antrun=warn
+            -Dorg.slf4j.simpleLogger.log.org.openapitools=warn
+        run: >-
+          mvn --batch-mode --no-transfer-progress
+          -Dmaven.test.redirectTestOutputToFile=true
+          clean verify
+
+      # The test output the step above kept off the log, plus the reports, for
+      # the run that needs them.
+      - name: Upload the test reports
+        if: failure() && steps.scope.outputs.backend == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: |
+            **/target/surefire-reports/
+            **/target/failsafe-reports/
+          retention-days: 7
+          if-no-files-found: ignore
 
       # -----------------------------------------------------------------------
       # Frontend build, test, and accessibility checks (ADR-017, ADR-014).
@@ -426,57 +502,119 @@ jobs:
       # The SPA is a standalone npm project, so Maven neither builds nor tests
       # it.  These steps run inside this job, not a separate one, for the same
       # per-job billing reason as the credential scan.
+      #
+      # Each piece of work runs once.  The npm scripts regenerate the contract
+      # types before lint, typecheck, tests and build, and `build` type-checks
+      # before bundling, so each script is safe on its own on a developer's
+      # machine (`typecheck.test.ts` holds that wiring).  Here the types are
+      # generated once and the typecheck is a step of its own; the later steps
+      # pass --ignore-scripts, which runs the named script and skips its
+      # pre-scripts, and the build step runs Vite alone.
       # -----------------------------------------------------------------------
-      - name: Set up Node 20
-        if: steps.scope.outputs.build == 'true'
+      - name: Set up Node 24
+        if: steps.scope.outputs.frontend == 'true'
         uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
           cache-dependency-path: portal/web/package-lock.json
 
+      # No audit and no funding notice: neither gates anything here, and the
+      # audit is a network round trip on every run.
       - name: Frontend — install dependencies
-        if: steps.scope.outputs.build == 'true'
+        if: steps.scope.outputs.frontend == 'true'
         working-directory: portal/web
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
-      # Type-aware ESLint (it regenerates the contract types first, through
-      # `prelint`) with --max-warnings 0, so a warning fails like an error.
-      - name: Frontend — lint (ESLint)
-        if: steps.scope.outputs.build == 'true'
+      - name: Frontend — generate the contract types
+        if: steps.scope.outputs.frontend == 'true'
         working-directory: portal/web
-        run: npm run lint
+        run: npm run generate:api
+
+      # Type-aware ESLint with --max-warnings 0, so a warning fails like an
+      # error.
+      - name: Frontend — lint (ESLint)
+        if: steps.scope.outputs.frontend == 'true'
+        working-directory: portal/web
+        run: npm run lint --ignore-scripts
 
       - name: Frontend — formatting (Prettier)
-        if: steps.scope.outputs.build == 'true'
+        if: steps.scope.outputs.frontend == 'true'
         working-directory: portal/web
         run: npm run format:check
+
+      # Both projects: the browser code and the Node side (the Playwright
+      # suites, their config, the Vite config and the Vitest environment).
+      - name: Frontend — typecheck (tsc)
+        if: steps.scope.outputs.frontend == 'true'
+        working-directory: portal/web
+        run: npm run typecheck --ignore-scripts
 
       # `test:coverage`, not `test`.  Vitest evaluates the coverage thresholds in
       # vite.config.ts only when --coverage is passed, so `npm test` would run
       # the same suite and hold no floor (ADR-019).
       - name: Frontend — unit tests and coverage floor (Vitest)
-        if: steps.scope.outputs.build == 'true'
+        if: steps.scope.outputs.frontend == 'true'
         working-directory: portal/web
-        run: npm run test:coverage
+        run: npm run test:coverage --ignore-scripts
 
       - name: Frontend — build (Vite)
-        if: steps.scope.outputs.build == 'true'
+        if: steps.scope.outputs.frontend == 'true'
         working-directory: portal/web
         run: |
           # --short=7, not bare --short (core.abbrev=auto grows with the object
           # count and drifts from the fixed length the Java artifacts use).
+          #
+          # Vite alone, not `npm run build`: that script's `tsc --noEmit` is
+          # the first half of the typecheck step above.  A step added to the
+          # build script has to be added here too.
+          #
+          # --logLevel warn drops Vite's line per emitted file — a hundred font
+          # files alone — and keeps its warnings, the chunk-size one included.
           VITE_GIT_COMMIT=$(git rev-parse --short=7 HEAD) \
           VITE_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-          npm run build
+          npx vite build --logLevel warn
+
+      # -----------------------------------------------------------------------
+      # The browser for the Playwright suites.
+      #
+      # Only Chromium's headless shell, the build every suite runs on: no
+      # project runs headed or names a channel.  It is cached under the
+      # Playwright version, which pins the browser build, so a run downloads it
+      # only when the version changes.
+      #
+      # The system packages are installed on every run, cache hit or not: the
+      # runner image lacks fonts the browser renders with, and caching apt's
+      # work would be a second package manager to keep honest.  Its transcript
+      # and the progress bars are printed only when the install fails, the one
+      # time they explain anything.
+      # -----------------------------------------------------------------------
+      - name: Frontend — read the Playwright version
+        id: playwright
+        if: steps.scope.outputs.frontend == 'true'
+        working-directory: portal/web
+        run: echo "version=$(npx playwright --version | awk '{ print $2 }')" >> "$GITHUB_OUTPUT"
+
+      - name: Frontend — cache the Playwright browser
+        if: steps.scope.outputs.frontend == 'true'
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-headless-shell
 
       - name: Frontend — install Playwright Chromium
-        if: steps.scope.outputs.build == 'true'
+        if: steps.scope.outputs.frontend == 'true'
         working-directory: portal/web
-        run: npx playwright install --with-deps chromium
+        run: |
+          LOG="$RUNNER_TEMP/playwright-install.log"
+          if ! npx playwright install --with-deps --only-shell chromium > "$LOG" 2>&1; then
+            cat "$LOG"
+            exit 1
+          fi
+          grep -E 'downloaded to' "$LOG" || echo "Chromium headless shell ready (from the cache)."
 
       - name: Frontend — accessibility tests (Playwright)
-        if: steps.scope.outputs.build == 'true'
+        if: steps.scope.outputs.frontend == 'true'
         working-directory: portal/web
         run: npm run test:a11y
 
@@ -484,7 +622,7 @@ jobs:
       # exactly the artifacts someone needs to diagnose an accessibility
       # regression they cannot reproduce locally.
       - name: Upload the Playwright report
-        if: failure() && steps.scope.outputs.build == 'true'
+        if: failure() && steps.scope.outputs.frontend == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report
@@ -506,13 +644,15 @@ jobs:
       # the whole run, which would take the credential scan above down with it.
       # -----------------------------------------------------------------------
       - name: Journey — run the real-service suite
-        if: github.event_name != 'pull_request' && steps.scope.outputs.build == 'true'
+        if: github.event_name != 'pull_request' && steps.scope.outputs.backend == 'true' && steps.scope.outputs.frontend == 'true'
         env:
           # Synthetic password for the throwaway CI Postgres container, used
           # only by this workflow run; not an operational credential.  The dev
           # token is generated by run-local.sh on every run.
           APP_DB_PASSWORD: ci-journey-pass
-        run: infra/scripts/e2e.sh --no-build
+        # The exec jars from `Maven verify` and the bundle from the Vite step:
+        # the suite runs against what this run already built and tested.
+        run: infra/scripts/e2e.sh --no-build --no-spa-build
 
       # -----------------------------------------------------------------------
       # Scan the HTML report for literal credentials before retaining it, as the
@@ -524,7 +664,7 @@ jobs:
       # stack uses synthetic data (ADR-014) so traces cannot carry real data.
       # -----------------------------------------------------------------------
       - name: Journey — scan report for credentials before upload
-        if: failure() && github.event_name != 'pull_request' && steps.scope.outputs.build == 'true'
+        if: failure() && github.event_name != 'pull_request' && steps.scope.outputs.backend == 'true' && steps.scope.outputs.frontend == 'true'
         run: |
           PAT_A='[A-Za-z_]*[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd][A-Za-z_]*=[^$[:space:]][^[:space:]]*'
           PAT_A2='[A-Za-z_]*[Pp][Aa][Ss][Ss][Ww][Dd][A-Za-z_]*=[^$[:space:]][^[:space:]]*'
@@ -566,7 +706,7 @@ jobs:
           echo "OK — no credential patterns in the Playwright report."
 
       - name: Journey — upload report on failure
-        if: failure() && github.event_name != 'pull_request' && steps.scope.outputs.build == 'true'
+        if: failure() && github.event_name != 'pull_request' && steps.scope.outputs.backend == 'true' && steps.scope.outputs.frontend == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: journey-report

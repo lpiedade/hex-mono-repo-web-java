@@ -1,9 +1,9 @@
 {
   // What runs in Node rather than in the browser bundle: the Playwright suites
-  // and their runner configuration, and the Vite/Vitest configuration. They get
-  // Node's types here, and `tsconfig.json` keeps them out of `src/` (where
-  // browser code must not reach for Node globals). `npm run typecheck`
-  // compiles both projects.
+  // and their runner configuration, the Vite/Vitest configuration, and the
+  // Vitest environment. They get Node's types here, and `tsconfig.json` keeps
+  // them out of `src/` (where browser code must not reach for Node globals).
+  // `npm run typecheck` compiles both projects.
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
@@ -20,5 +20,5 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["node"]
   },
-  "include": ["e2e", "playwright.config.ts", "vite.config.ts"]
+  "include": ["e2e", "playwright.config.ts", "vite.config.ts", "vitest.environment.ts"]
 }

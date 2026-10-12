@@ -57,8 +57,13 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "jsdom",
+    // jsdom, with one seam to Node's `Request` repaired — see the file.
+    environment: "./vitest.environment.ts",
     setupFiles: ["./src/shared/testing/setup.ts"],
+    // Worker threads, not Vitest 2's default child processes: with four
+    // workers, as on CI's runner, the suite ran in 37-42 s against 43-54 s.
+    // Vitest's dependency optimizer bought the same and nothing on top.
+    pool: "threads",
     globals: true,
     // Vitest's default glob would also collect e2e/*.spec.ts, which are
     // Playwright suites: they call `test()` from @playwright/test, which throws
@@ -78,7 +83,9 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reportsDirectory: "coverage",
-      reporter: ["text", "html", "json-summary"],
+      // The terminal table lists only the files short of 100% — the ones a
+      // floor can be lost on — and the totals; the HTML report has every file.
+      reporter: [["text", { skipFull: true }], "html", "json-summary"],
       include: ["src/**/*.{ts,tsx}"],
       exclude: [
         // Generated contract types (ADR-012) — instrumenting them would shift

@@ -155,7 +155,7 @@ export default defineConfig(
     rules: { "no-restricted-imports": ["error", { patterns: [climbingImport] }] },
   },
   {
-    files: ["e2e/**/*.ts", "playwright.config.ts", "vite.config.ts"],
+    files: ["e2e/**/*.ts", "playwright.config.ts", "vite.config.ts", "vitest.environment.ts"],
     languageOptions: { globals: globals.node },
   },
   {

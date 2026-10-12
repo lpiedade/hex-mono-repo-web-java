@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Sync the `blocked` label
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const BLOCKED = 'blocked';

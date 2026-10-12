@@ -12,6 +12,22 @@ import { t, tAny, tAnyExact } from "./i18n";
  * without data, which is a state users meet too. What these do not replace is
  * a manual screen-reader pass.
  */
+
+/**
+ * The paths `vite preview` proxies to the BFF, answered in the browser with
+ * what the proxy itself answers when nothing listens behind it: an empty 500.
+ * The screens render the same state, but the preview server no longer logs a
+ * refused connection and its stack for every call, which buried the suite's
+ * own output.
+ */
+const BFF_PATHS = /\/app\/(bff|about|health)(?:[/?]|$)/;
+
+test.beforeEach(async ({ page }) => {
+  await page.route(BFF_PATHS, (route) =>
+    route.fulfill({ status: 500, contentType: "text/plain", body: "" }),
+  );
+});
+
 const ROUTES = [
   { path: "", name: "home", titleKey: "home.title" },
   { path: "items", name: "items", titleKey: "items.title" },

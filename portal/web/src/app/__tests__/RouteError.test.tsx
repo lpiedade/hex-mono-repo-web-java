@@ -11,6 +11,7 @@ import {
   reportError,
   resetErrorReporting,
 } from "@/shared/api";
+import { ROUTER_FUTURE } from "@/shared/lib";
 import { expectConsole, renderRoutes, t } from "@/shared/testing";
 import { App } from "../App";
 import { routes } from "../router/router";
@@ -129,7 +130,9 @@ describe("a screen that fails to render", () => {
   });
 
   it("leaves the global error report working", async () => {
-    render(<App router={createMemoryRouter(routes, { initialEntries: ["/"] })} />);
+    render(
+      <App router={createMemoryRouter(routes, { initialEntries: ["/"], future: ROUTER_FUTURE })} />,
+    );
     await screen.findByRole("heading", { level: 1, name: t("routeError.title") });
 
     // Reported from outside React, as a mutation's cache does; the snackbar's

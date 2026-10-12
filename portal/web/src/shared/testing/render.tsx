@@ -10,6 +10,7 @@ import {
   type RouteObject,
 } from "react-router-dom";
 import "@/shared/i18n";
+import { RENDER_FUTURE, ROUTER_FUTURE } from "@/shared/lib";
 import { buildTheme, ColorModeContext, type ColorModeState } from "@/shared/theme";
 
 /**
@@ -65,7 +66,10 @@ export function renderWithProviders(
   function Providers({ children }: PropsWithChildren) {
     return (
       <BaseProviders queryClient={qc}>
-        <MemoryRouter initialEntries={initialPath ? [initialPath] : undefined}>
+        <MemoryRouter
+          initialEntries={initialPath ? [initialPath] : undefined}
+          future={RENDER_FUTURE}
+        >
           {children}
         </MemoryRouter>
       </BaseProviders>
@@ -88,10 +92,13 @@ export function renderRoutes(
   routes: RouteObject[],
   options: { initialPath?: string; queryClient?: QueryClient } = {},
 ): RenderResult & { router: TestRouter } {
-  const router = createMemoryRouter(routes, { initialEntries: [options.initialPath ?? "/"] });
+  const router = createMemoryRouter(routes, {
+    initialEntries: [options.initialPath ?? "/"],
+    future: ROUTER_FUTURE,
+  });
   const result = render(
     <BaseProviders queryClient={options.queryClient ?? createTestQueryClient()}>
-      <RouterProvider router={router} />
+      <RouterProvider router={router} future={RENDER_FUTURE} />
     </BaseProviders>,
   );
   return { ...result, router };

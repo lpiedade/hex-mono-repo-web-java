@@ -28,7 +28,7 @@
             version is referenced by the resource handler in SwaggerUiDevConfig;
             keep the two in sync.
         -->
-        <swagger-ui.version>5.21.0</swagger-ui.version>
+        <swagger-ui.version>5.33.1</swagger-ui.version>
     </properties>
 
     <dependencies>
@@ -212,6 +212,15 @@
                                 <annotationLibrary>none</annotationLibrary>
                                 <documentationProvider>none</documentationProvider>
                                 <useBeanValidation>true</useBeanValidation>
+                                <!--
+                                    Null handling stays the global ObjectMapper's,
+                                    as before 7.24: no field-level @JsonInclude or
+                                    @JsonSetter(nulls). Stated, because since 7.24
+                                    the generator warns on every build when these
+                                    are left unset.
+                                -->
+                                <generateJsonIncludeAnnotations>false</generateJsonIncludeAnnotations>
+                                <generateJsonSetterNullsAnnotations>false</generateJsonSetterNullsAnnotations>
                                 <sourceFolder>src/main/java</sourceFolder>
                             </configOptions>
                         </configuration>
@@ -257,7 +266,7 @@
             <plugin>
                 <groupId>io.github.git-commit-id</groupId>
                 <artifactId>git-commit-id-maven-plugin</artifactId>
-                <version>9.0.1</version>
+                <version>10.0.1</version>
                 <executions>
                     <execution>
                         <id>get-git-info</id>

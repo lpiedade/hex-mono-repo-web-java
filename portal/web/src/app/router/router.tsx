@@ -2,7 +2,7 @@ import { createBrowserRouter, type RouteObject } from "react-router-dom";
 import { HomePage } from "@/pages/home";
 import { NotFoundPage } from "@/pages/not-found";
 import { APP_BASE_PATH } from "@/shared/api";
-import type { RouteHandle } from "@/shared/lib";
+import { ROUTER_FUTURE, type RouteHandle } from "@/shared/lib";
 import { ShellLayout } from "@/widgets/shell";
 import { RootError, RouteError } from "./RouteError";
 
@@ -79,6 +79,9 @@ let browserRouter: AppRouter | undefined;
  * history as well, which StrictMode's double render would otherwise cause.
  */
 export function appRouter(): AppRouter {
-  browserRouter ??= createBrowserRouter(routes, { basename: APP_BASE_PATH });
+  browserRouter ??= createBrowserRouter(routes, {
+    basename: APP_BASE_PATH,
+    future: ROUTER_FUTURE,
+  });
   return browserRouter;
 }
