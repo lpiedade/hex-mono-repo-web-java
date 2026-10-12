@@ -182,6 +182,14 @@ The SPA is a standalone npm project: from `portal/web`, run
 `npm ci && npm run test:coverage && npm run build` (see
 [`portal/CLAUDE.md`](portal/CLAUDE.md)).
 
+**CI runs the checks a pull request can reach; the nightly runs all of them.**
+A change under `portal/web/` skips the Maven build, a Java change skips the
+portal's checks, and the two OpenAPI contracts run both. The two sides read
+nothing else of each other, and nothing checks that: a file read across the
+boundary goes into the scope step's classifier in `build.yaml` in the same
+change that adds the read.
+([ADR-029](docs/adr/ADR-029-pull-requests-run-the-checks-they-can-reach.md))
+
 The architecture rules are deliberately outside `mvn clean verify` — run them
 with `mvn -Parchitecture verify`
 ([ADR-015](docs/adr/ADR-015-archunit-nightly-ring-report.md)). Adding a rule
