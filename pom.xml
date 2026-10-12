@@ -39,8 +39,8 @@
             behind, so the BOM below pins it for the whole reactor. Keep it at
             or above the version Boot's own BOM manages.
         -->
-        <junit.version>6.0.3</junit.version>
-        <postgresql.version>42.7.7</postgresql.version>
+        <junit.version>6.1.3</junit.version>
+        <postgresql.version>42.7.14</postgresql.version>
         <testcontainers.version>2.0.5</testcontainers.version>
         <!--
             ArchUnit drives the nightly ring report in core (ADR-015). It *imports*
@@ -50,21 +50,22 @@
             alone, so core's shipped artifact keeps zero runtime dependencies
             (ADR-003).
         -->
-        <archunit.version>1.5.0</archunit.version>
+        <archunit.version>1.5.1</archunit.version>
         <!--
             Spring Boot 4.0 (Spring Framework 7) is the first line whose bundled
             ASM parses Java 25 class files; earlier lines fail component scanning
             on this JDK. Imported here only as managed versions, so core acquires
             no dependency (ADR-003).
         -->
-        <spring-boot.version>4.0.8</spring-boot.version>
-        <openapi-generator.version>7.14.0</openapi-generator.version>
-        <maven.compiler.version>3.14.1</maven.compiler.version>
-        <maven.surefire.version>3.5.4</maven.surefire.version>
+        <spring-boot.version>4.1.1</spring-boot.version>
+        <openapi-generator.version>7.26.0</openapi-generator.version>
+        <maven.compiler.version>3.16.0</maven.compiler.version>
+        <maven.resources.version>3.5.0</maven.resources.version>
+        <maven.surefire.version>3.6.0</maven.surefire.version>
         <maven.enforcer.version>3.6.3</maven.enforcer.version>
-        <maven.antrun.version>3.1.0</maven.antrun.version>
-        <maven.javadoc.version>3.11.2</maven.javadoc.version>
-        <jacoco.version>0.8.13</jacoco.version>
+        <maven.antrun.version>3.2.0</maven.antrun.version>
+        <maven.javadoc.version>3.12.0</maven.javadoc.version>
+        <jacoco.version>0.8.15</jacoco.version>
         <!--
             Coverage floors — the ratchet (ADR-019).
 
@@ -146,6 +147,16 @@
                         -->
                         <parameters>true</parameters>
                     </configuration>
+                </plugin>
+                <!--
+                    apps/api declares this plugin to copy the contract into the
+                    jar. Without a managed version the effective model is
+                    incomplete, and Maven warns about it on every build.
+                -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>${maven.resources.version}</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
