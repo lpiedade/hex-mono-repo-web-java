@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "react-router-dom";
 import "@/shared/i18n";
+import { RENDER_FUTURE } from "@/shared/lib";
 import { GlobalErrorSnackbar } from "@/shared/ui";
 import { ContentFallback } from "@/widgets/shell";
 import { ColorModeProvider } from "./providers/ColorModeProvider";
@@ -21,7 +22,11 @@ export function App({ router }: AppProps) {
   return (
     <ColorModeProvider>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router ?? appRouter()} fallbackElement={<ContentFallback />} />
+        <RouterProvider
+          router={router ?? appRouter()}
+          fallbackElement={<ContentFallback />}
+          future={RENDER_FUTURE}
+        />
         {/* Beside the router, not inside it: a screen that fails to render is
             replaced by its route's error element, and failures keep being
             reported while it is on screen. */}
