@@ -292,6 +292,75 @@ jobs:
           echo "OK — no committed literal credentials found."
 
       # -----------------------------------------------------------------------
+      # Agent instructions: one text, inside Codex's budget.
+      #
+      # Each CLAUDE.md is the source, and the AGENTS.md beside it is a symlink
+      # to it so Codex reads the same text.  A symlink replaced by a copy, an
+      # AGENTS.md with no CLAUDE.md beside it, or a CLAUDE.md with no AGENTS.md
+      # starts two texts drifting apart, and nothing else would notice.
+      #
+      # Codex concatenates the files from the repository root down to its
+      # working directory and stops at 32 KiB combined (its default
+      # project_doc_max_bytes), dropping the rest without a word.  So every
+      # root-to-directory chain of CLAUDE.md files is measured against it.
+      #
+      # It runs before the scope step on purpose: a change that touches only
+      # Markdown skips every check after it (ADR-029), and Markdown is exactly
+      # what this guards.
+      # -----------------------------------------------------------------------
+      - name: Agent instructions — AGENTS.md symlinks and Codex budget
+        run: |
+          LIMIT=32768
+          FAILED=false
+
+          # Every directory that tracks either file, root as ".".
+          mapfile -t DIRS < <(git ls-files -- ':(glob)**/CLAUDE.md' ':(glob)**/AGENTS.md' \
+            | sed -E 's#(^|/)[^/]+$##; s#^$#.#' | sort -u)
+
+          for dir in "${DIRS[@]}"; do
+            src="$dir/CLAUDE.md"; src="${src#./}"
+            link="$dir/AGENTS.md"; link="${link#./}"
+
+            if [[ -z "$(git ls-files -- "$src")" ]]; then
+              echo "::error file=$link::$link has no CLAUDE.md beside it.  CLAUDE.md is the source; AGENTS.md only points at it."
+              FAILED=true
+              continue
+            fi
+
+            # Mode 120000 is a symlink; its blob is the target path.
+            entry=$(git ls-files -s -- "$link")
+            if [[ "${entry%% *}" != 120000 ]] || [[ "$(git cat-file blob ":$link")" != CLAUDE.md ]]; then
+              echo "::error file=$src::$link must be a symlink to CLAUDE.md (ln -s CLAUDE.md $link), not a copy and not missing."
+              FAILED=true
+            fi
+
+            # The chain Codex reads when it starts in this directory.
+            total=0 chain="" d="$dir"
+            while :; do
+              f="$d/CLAUDE.md"; f="${f#./}"
+              if [[ -n "$(git ls-files -- "$f")" ]]; then
+                total=$(( total + $(wc -c < "$f") ))
+                chain="$f${chain:+ + $chain}"
+              fi
+              [[ "$d" == . ]] && break
+              d=$(dirname "$d")
+            done
+
+            if (( total > LIMIT )); then
+              echo "::error file=$src::$chain is $total bytes, over Codex's $LIMIT-byte budget (project_doc_max_bytes); Codex drops whatever comes past it."
+              FAILED=true
+            else
+              echo "$chain — $total of $LIMIT bytes."
+            fi
+          done
+
+          if [[ "$FAILED" == true ]]; then
+            exit 1
+          fi
+
+          echo "OK — every AGENTS.md is a symlink to its CLAUDE.md, and every chain fits."
+
+      # -----------------------------------------------------------------------
       # Scope: which checks this run needs (ADR-029).
       #
       # The credential scan above always runs — a literal can land in an ADR or

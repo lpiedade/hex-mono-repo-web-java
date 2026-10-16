@@ -5,7 +5,7 @@ Code read one text: edit the `CLAUDE.md`. Codex loads only the files from the
 root to its working directory — read [`portal/CLAUDE.md`](portal/CLAUDE.md) or
 [`db/CLAUDE.md`](adapters/persistence/src/main/resources/db/CLAUDE.md) before
 editing under them. This file and `portal/CLAUDE.md` share Codex's 32 KiB
-budget (`project_doc_max_bytes`); the excess is dropped.
+budget (`project_doc_max_bytes`); the excess is dropped. CI checks both.
 
 ## Architecture
 
