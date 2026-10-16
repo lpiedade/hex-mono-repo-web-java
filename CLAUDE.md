@@ -1,5 +1,12 @@
 # Development guidance
 
+Each `AGENTS.md` is a symlink to the `CLAUDE.md` beside it, so Codex and Claude
+Code read one text: edit the `CLAUDE.md`. Codex loads only the files from the
+root to its working directory — read [`portal/CLAUDE.md`](portal/CLAUDE.md) or
+[`db/CLAUDE.md`](adapters/persistence/src/main/resources/db/CLAUDE.md) before
+editing under them. This file and `portal/CLAUDE.md` share Codex's 32 KiB
+budget (`project_doc_max_bytes`); the excess is dropped.
+
 ## Architecture
 
 The rules below are a summary. The reasoning, the rejected alternatives, and the
@@ -232,7 +239,7 @@ The enforcement is `"includeCoAuthoredBy": false` in Claude Code's user settings
 (`~/.claude/settings.json`), which suppresses both trailers at the harness level
 rather than relying on an agent reading this file. `.claude/` is git-ignored
 here, so a repository-local settings file would bind nobody but the machine it
-sits on.
+sits on. Nothing equivalent is committed for Codex: this file alone binds it.
 
 ### Merging a pull request
 

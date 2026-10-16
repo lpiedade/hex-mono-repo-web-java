@@ -59,6 +59,7 @@ and moves the source trees. `--dry-run` lists what would change. Then
 │   └── test-fixtures/       synthetic development data, loaded through the API
 ├── .github/                 CI workflows, issue and PR templates, labels.yml
 ├── compose.yaml             PostgreSQL (+ API and BFF under the `app` profile)
+├── AGENTS.md                symlink to CLAUDE.md, the name Codex reads
 ├── CLAUDE.md                the rules, for humans and agents alike
 ├── CONTEXT.md               domain glossary
 └── init-project.sh          renames the template for a new project
@@ -134,4 +135,5 @@ AWS.
 [`CLAUDE.md`](CLAUDE.md) holds the architecture rules, commit and merge
 conventions, the issue structure and the label table;
 [`portal/CLAUDE.md`](portal/CLAUDE.md) the portal's. The decisions behind them
-are in [`docs/adr/`](docs/adr/README.md).
+are in [`docs/adr/`](docs/adr/README.md). Each `CLAUDE.md` has an `AGENTS.md`
+symlink beside it, so Codex reads the same text; edit the `CLAUDE.md`.
