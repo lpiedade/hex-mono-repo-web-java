@@ -44,10 +44,7 @@
   color: "c2e0c6"
   description: "Spec complete enough to implement, independent of dependencies"
 
-# Dependency state — owned by .github/workflows/issue-blocked-labels.yaml.
-- name: blocked
-  color: "000000"
-  description: "Automatic: an issue under Blocked by is still open. Never set by hand"
+# Dependency state is not a label: it is GitHub's native issue dependencies.
 
 # Type.
 - name: bug

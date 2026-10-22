@@ -13,7 +13,8 @@ labels: []
     - priority: exactly one of must | should | could — the Tier of the feature in
       docs/plans/feature-register.md, never an estimate or a schedule
     - ready-for-agent once this spec is complete enough to implement
-    - never set `blocked` by hand: the workflow owns it from "Blocked by" below
+  Prerequisites are native issue dependencies, not a section or a label: link
+  each with `gh issue edit <N> --add-blocked-by <M>` or the issue's sidebar.
   No attribution trailer or "Generated with" footer in the body.
 -->
 
@@ -57,16 +58,6 @@ labels: []
 
 <!-- ADRs that must be Accepted before implementation. Delete the section if none. -->
 - ADR-0NN — <title> — `docs/adr/ADR-0NN-<slug>.md`
-
-## Blocked by
-
-<!--
-  Closable issue references only, as task-list items, so GitHub tracks them and
-  the `blocked` label automation can parse them. Never free text: if a whole
-  domain or gate blocks this, open (or reuse) a tracking issue and cite it.
-  Delete the section if there are no prerequisites.
--->
-- [ ] #NN — <title>
 
 ## Out of scope
 

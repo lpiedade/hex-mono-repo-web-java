@@ -9,9 +9,9 @@ name: Arch (code review)
 # The run is kept to `-pl core`, the only module the rules examine, rather than
 # a reactor build: GitHub bills each job by the minute.
 #
-# 03:30 UTC deliberately: `build.yaml`'s scheduled main check runs at 03:00 and
-# `issue-blocked-labels.yaml` at 06:17, and GitHub advises against the top of the
-# hour, where scheduled runs queue behind everyone else's.
+# 03:30 UTC deliberately: `build.yaml`'s scheduled main check runs at 03:00, and
+# GitHub advises against the top of the hour, where scheduled runs queue behind
+# everyone else's.
 
 on:
   schedule:

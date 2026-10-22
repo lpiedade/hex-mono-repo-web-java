@@ -9,7 +9,9 @@ labels: ["epic"]
   An epic spans several deliverables and is never implemented in one pass. The
   `epic` label is the marker — no "(epic)" in the title. Add exactly one priority
   label (must | should | could) from the feature register, and ready-for-agent
-  once the spec is settled enough to decompose. Delete these comments.
+  once the spec is settled enough to decompose. Link prerequisites as native
+  issue dependencies (`gh issue edit <N> --add-blocked-by <M>`), not as a
+  section or a label. Delete these comments.
 -->
 
 ## Parent
@@ -38,11 +40,6 @@ labels: ["epic"]
 ## Prerequisite ADRs
 
 - ADR-0NN — <title> — `docs/adr/ADR-0NN-<slug>.md`
-
-## Blocked by
-
-<!-- Closable issue references only; delete the section if none. -->
-- [ ] #NN — <title>
 
 ## Out of scope
 
