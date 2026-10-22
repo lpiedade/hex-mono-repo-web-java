@@ -48,7 +48,7 @@ survives a busy repository.
 - **Priority** is product-absolute and lives on the feature: *Must* means the
   product is not deliverable without it, not that it ships first. It is mirrored
   onto issues as the `must` / `should` / `could` labels.
-- **Pickability** (`label:ready-for-agent -label:blocked`) answers *what may be
+- **Pickability** (`label:ready-for-agent -is:blocked`) answers *what may be
   worked*, never *what should be*.
 - **Ordering** is the implementation plan's, and only its.
 

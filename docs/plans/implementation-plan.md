@@ -34,7 +34,7 @@ the issues in your wave are still open and unblocked (`gh issue view`), and if
 this document is wrong, correct it as part of the work. The reader is the
 maintainer, because the reader has already paid the cost of looking.
 
-**Pickability is not priority.** `label:ready-for-agent -label:blocked` answers
+**Pickability is not priority.** `label:ready-for-agent -is:blocked` answers
 *what may be worked*; this file answers *what should be worked next*.
 
 ## 3. The ordering rule

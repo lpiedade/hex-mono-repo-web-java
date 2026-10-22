@@ -283,12 +283,12 @@ Required sections of an implementation issue, in order:
   owns, listed per spec.
 - **Prerequisite ADRs** — ADRs that must be `Accepted` before implementation
   (omit if none).
-- **Blocked by** — the prerequisites this issue waits on, each as a **closable
-  issue reference** written as a task-list item (`- [ ] #NN — <title>`) so
-  GitHub tracks it natively and the `blocked` label automation can parse it.
-  Never a free-text domain, spec, or gate description: if a whole domain or gate
-  is the blocker, open (or reuse) a tracking issue and cite its `#NN`. Omit the
-  section when there are no prerequisites.
+- **No Blocked by section.** Record each prerequisite issue as a GitHub
+  **native issue dependency** instead (`gh issue edit <N> --add-blocked-by <M>`,
+  or `--blocked-by <M>` on `gh issue create`). GitHub shows it on the issue and
+  derives `is:blocked` from it; a list in the body is invisible to both. Never a
+  free-text domain, spec, or gate description: if a whole domain or gate is the
+  blocker, open (or reuse) a tracking issue and link that.
 - **Out of scope** — deferred behaviour named by its `FR-###` / `FS-0XX-F##`
   ID and MoSCoW tier, so an unselected obligation is never inferred.
 - Do NOT add an attribution trailer — see **Attribution trailers** above.
@@ -321,7 +321,6 @@ file changes on `main`). The axes are orthogonal and may coexist on one issue.
 | `could` | Priority | human | … is Could |
 | `epic` | Granularity | human | Coarse epic worked through its **Decomposition**, never in one pass |
 | `ready-for-agent` | Readiness | human | The spec is complete enough to implement, independent of dependency state |
-| `blocked` | Dependency state | automation | An issue under **Blocked by** is still open — never set by hand |
 | `bug` | Type | human | Behaviour differs from its spec, contract or ADR |
 
 - **Priority is product-absolute.** Every implementation issue carries exactly
@@ -337,16 +336,17 @@ file changes on `main`). The axes are orthogonal and may coexist on one issue.
   default `wontfix` for the same reason.
 - **`epic` carries no title marker.** No `(epic)` / `[epic]` in the title — the
   label is the marker.
-- **`blocked` is owned by** `.github/workflows/issue-blocked-labels.yaml`: present
-  whenever any `#NN` under **Blocked by** is still open, removed once they all
-  close.
-- An issue is pickable now when it carries `ready-for-agent` and not `blocked`
-  (`label:ready-for-agent -label:blocked`).
+- **Dependency state is not a label.** It is the issue's native dependencies,
+  and an issue is blocked while any issue it is blocked by is still open. Never
+  create a `blocked` label or a workflow that syncs one — GitHub already derives
+  the state.
+- An issue is pickable now when it carries `ready-for-agent` and has no open
+  blocker (`label:ready-for-agent -is:blocked`).
 - `epic` + `ready-for-agent` means the spec is settled enough to act on: if the
   epic has no **Decomposition** yet, produce it; if it has one, pick up its
   tracer bullets. It never means "implement the whole thing in one pass".
-  `epic` + `blocked` is valid — an epic tracks its own prerequisites through
-  **Blocked by** like any other issue.
+  A blocked epic is valid — an epic links its own prerequisites as native
+  dependencies like any other issue.
 - A coarse epic lists a **Decomposition** checklist that splits it into
   `ready-for-agent` tracer bullets once its prerequisites exist. A child is
   picked and closed on its own; the epic closes when its checklist is done.

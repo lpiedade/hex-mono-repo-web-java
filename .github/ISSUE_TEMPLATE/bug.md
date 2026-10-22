@@ -8,7 +8,9 @@ labels: ["bug"]
 <!--
   Add the area label (backend | frontend | infra). Priority follows the feature
   the bug breaks. Never paste tokens, passwords, personal data or full stack
-  traces from production here. Delete these comments.
+  traces from production here. Link prerequisites as native issue dependencies
+  (`gh issue edit <N> --add-blocked-by <M>`), not as a section or a label.
+  Delete these comments.
 -->
 
 ## What happens
@@ -33,8 +35,3 @@ labels: ["bug"]
 - code:
 - correlationId:
 - environment / build:
-
-## Blocked by
-
-<!-- Closable issue references only; delete the section if none. -->
-- [ ] #NN — <title>
